@@ -1,0 +1,15 @@
+# Build output
+/bin/
+/vitald
+
+# Local configuration and secrets
+.env
+*.local
+
+# Runtime data
+/data/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
