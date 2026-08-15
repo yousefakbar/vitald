@@ -4,6 +4,9 @@
 
 > This project is not intended for medical diagnosis or clinical decision support.
 
+- [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md): living architecture, implementation status, limitations, and agent handoff
+- [`docs/PROJECT.md`](docs/PROJECT.md): long-term goals and design direction
+
 ## Supported data
 
 - daily steps
@@ -168,7 +171,7 @@ docs/PROJECT.md                     high-level design
 
 `vitald sync` is deliberately a terminating command. Run it from cron, a systemd timer, or a container scheduler rather than keeping an internal scheduler daemon alive.
 
-See [`docs/PROJECT.md`](docs/PROJECT.md) for the broader project direction.
+See [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) for the current implementation context and [`docs/PROJECT.md`](docs/PROJECT.md) for the broader project direction.
 
 ## License
 

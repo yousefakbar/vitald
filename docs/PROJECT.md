@@ -1,5 +1,7 @@
 # vitald — Self-Hosted Health Data Platform
 
+> This document describes long-term goals and design direction. For the architecture and behavior currently implemented in the repository, read [`CURRENT_STATE.md`](CURRENT_STATE.md).
+
 ## Overview
 
 `vitald` is a self-hosted health data project for collecting, storing, analyzing, and visualizing personal health data from devices and services such as Fitbit / Google Health.
@@ -405,17 +407,17 @@ When making implementation decisions, prefer:
 
 ## Immediate Next Milestone
 
-The next milestone is the **CLI data fetcher / ingestor**.
+The initial CLI ingestion milestone is complete: OAuth, real metric fetching, exact raw archival, normalization, PostgreSQL persistence, incremental checkpoints, and synchronization run history are implemented.
 
-The first useful implementation should:
+The next milestone is **safe unattended synchronization**:
 
-- authenticate without manually supplying a new access token every run
-- successfully fetch one real health metric for a specified time range
-- expose the result in a debuggable form
-- persist the raw response locally
-- have a small automated test suite around parsing / normalization
+- prevent concurrent syncs with a PostgreSQL advisory lock
+- recover stale `running` history left by hard-killed processes
+- add a `vitald doctor` command
+- establish backup and restore procedures
+- schedule `vitald sync` with a systemd timer
 
-Do not begin with the dashboard. Establish a reliable data pipeline first.
+Only after the pipeline is safe to operate unattended should the project add stable analytics views and Grafana dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
 
 ## Open Decisions
 
