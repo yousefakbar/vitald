@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the living handoff document for the project. It describes what the repository actually implements today, the decisions behind it, known gaps, and the next planned work. Update it whenever behavior, architecture, schema, deployment, or priorities change.
 >
-> **Last updated:** 2026-08-15 after implementing synchronization locking and stale-run recovery on top of commit `c5fbe6f`.
+> **Last updated:** 2026-08-15 after implementing `vitald doctor` on top of commit `79951a5`.
 
 ## 1. Project State at a Glance
 
@@ -28,6 +28,7 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 - [x] Overall and per-metric synchronization run history
 - [x] PostgreSQL session advisory lock preventing concurrent `sync` executions
 - [x] Recovery/finalization of stale `running` synchronization rows
+- [x] `vitald doctor` offline diagnostics, JSON output, and optional online identity check
 - [x] Partial-failure behavior: successful metrics persist even if another fails
 - [x] Text or JSON structured logging through `log/slog`
 - [x] Multi-stage container image and Podman/Docker Compose deployment
@@ -35,7 +36,6 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 
 ### Not implemented yet
 
-- [ ] `vitald doctor` health checks
 - [ ] Automated backup and tested restore workflow
 - [ ] systemd service/timer or another production scheduler
 - [ ] Stable analytics SQL views
@@ -153,7 +153,7 @@ For data commands, `internal/cli/runtime.go`:
 8. Loads the configured timezone.
 9. Constructs the Google client, archive, storage, and ingestion service.
 
-`status` and `runs` need PostgreSQL but do not require a valid OAuth token.
+`status` and `runs` need PostgreSQL but do not require a valid OAuth token. `doctor` constructs checks independently so it can report multiple configuration, token, filesystem, database, migration, and synchronization problems in one invocation.
 
 ## 4. Repository Layout
 
@@ -163,7 +163,7 @@ cmd/vitald/main.go
 
 internal/cli/
     Cobra commands and dependency wiring:
-    auth, identity, fetch, sync, status, runs list/show.
+    auth, identity, fetch, sync, status, runs list/show, doctor.
 
 internal/config/
     Environment-based configuration and validation.
@@ -224,6 +224,10 @@ vitald runs list [--limit 20]
 
 vitald runs show <run-id>
     Show one run and all per-metric results.
+
+vitald doctor [--json] [--online]
+    Run non-destructive operational checks. By default it does not contact Google.
+    --online refreshes and persists the OAuth token, then verifies identity.
 ```
 
 Important behavior:
@@ -231,7 +235,9 @@ Important behavior:
 - `fetch` is for explicit debugging/backfill ranges.
 - `sync` is the automation-oriented command.
 - A partial sync persists successful metrics, records failures, completes the run as `partial`, and returns a non-zero exit status.
-- Graceful cancellation is recorded as `cancelled`; a hard kill can currently leave `running` rows.
+- Graceful cancellation is recorded as `cancelled`; after a hard kill, the next sync recovers abandoned `running` rows.
+- `doctor` exits non-zero only when one or more checks fail; warnings retain a zero exit status.
+- `doctor` does not apply pending migrations or recover stale runs. It reports them for an operator or the next data command.
 
 ## 6. Supported Metrics and Normalization
 
@@ -466,6 +472,7 @@ podman compose run --rm vitald fetch steps --from 2026-08-01 --to 2026-08-08
 podman compose run --rm vitald sync
 podman compose run --rm vitald status
 podman compose run --rm vitald runs list
+podman compose run --rm vitald doctor
 ```
 
 `--service-ports` is needed for `auth`, not routine fetch/sync/status commands.
@@ -493,7 +500,8 @@ Test coverage includes:
 - stable daily record keys
 - sync status derivation
 - bounded UTF-8-safe run errors
-- PostgreSQL migration, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
+- doctor report aggregation, JSON output, token diagnostics, and non-destructive archive-path checks
+- PostgreSQL migration diagnostics, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
 
 The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The container image has been built and executed with rootless Podman. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment.
 
@@ -510,19 +518,18 @@ The PostgreSQL integration test has been run against a real PostgreSQL 17 contai
 
 ## 15. Next Planned Work
 
-### Immediate next milestone: operational health checks
+### Immediate next milestone: backup and restore
 
-Implement `vitald doctor` to validate configuration, PostgreSQL connectivity and migrations, OAuth token state, raw archive writeability, and synchronization state. Define text and machine-readable output plus failure-oriented exit status behavior before implementation.
+Define and implement a backup and tested restore workflow covering PostgreSQL, the raw archive, and the OAuth token. Establish retention, encryption, destination, consistency, and restore-verification requirements before choosing the final tooling.
 
 ### Planned order
 
-1. `vitald doctor`
-2. PostgreSQL/raw/token backup and restore workflow
-3. systemd service and timer
-4. stable daily/heart-rate/sleep/exercise/pipeline SQL views
-5. Grafana datasource and version-controlled dashboards
-6. controlled historical backfill
-7. evidence-based TimescaleDB evaluation
+1. PostgreSQL/raw/token backup and restore workflow
+2. systemd service and timer
+3. stable daily/heart-rate/sleep/exercise/pipeline SQL views
+4. Grafana datasource and version-controlled dashboards
+5. controlled historical backfill
+6. evidence-based TimescaleDB evaluation
 
 ## 16. Future-Agent Handoff Checklist
 

@@ -111,6 +111,16 @@ Verify authentication:
 ./bin/vitald identity
 ```
 
+Check operational readiness without contacting Google. Add `--online` to refresh the OAuth token and verify Google Health identity, or `--json` for machine-readable output:
+
+```bash
+./bin/vitald doctor
+./bin/vitald doctor --online
+./bin/vitald doctor --json
+```
+
+`doctor` checks configuration, token security and refresh capability, archive writeability, PostgreSQL connectivity and migrations, the synchronization lock, and abandoned run history. It does not apply migrations or recover stale runs. Warnings retain a zero exit status; failed checks return non-zero.
+
 Fetch one metric:
 
 ```bash

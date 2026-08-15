@@ -21,6 +21,17 @@ func TestSyncHistoryIntegration(t *testing.T) {
 	if err := store.Migrate(ctx); err != nil {
 		t.Fatal(err)
 	}
+	migrationStatus, err := store.MigrationStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectedMigrations, err := embeddedMigrationVersions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(migrationStatus.Applied) != len(expectedMigrations) || len(migrationStatus.Pending) != 0 || len(migrationStatus.Unknown) != 0 {
+		t.Fatalf("unexpected migration status: %+v", migrationStatus)
+	}
 
 	runID, err := store.StartSyncRun(ctx, StartSyncRunInput{InitialDays: 7, Timezone: "Asia/Riyadh", VitaldVersion: "test"})
 	if err != nil {
@@ -47,6 +58,13 @@ func TestSyncHistoryIntegration(t *testing.T) {
 	}
 	if len(metrics) != 1 || metrics[0].PagesArchived != 1 {
 		t.Fatalf("unexpected metrics: %+v", metrics)
+	}
+	running, err := store.RunningSyncStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if running.Runs != 0 || running.Metrics != 0 {
+		t.Fatalf("unexpected running synchronization status: %+v", running)
 	}
 }
 
