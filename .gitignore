@@ -5,6 +5,8 @@
 # Local configuration and secrets
 .env
 *.local
+token.json
+client_secret*.json
 
 # Runtime data
 /data/

@@ -141,9 +141,7 @@ Provider
 
 This prevents API-specific response formats from leaking throughout the rest of the project and makes adding another provider possible later.
 
-The current integration work is focused on Google's health API using OAuth.
-
-A basic authenticated request has already been verified against:
+The current integration uses the Google Health API v4 with Google OAuth 2.0. The identity endpoint is used as the authentication smoke test:
 
 ```text
 https://health.googleapis.com/v4/users/me/identity
@@ -423,11 +421,10 @@ Do not begin with the dashboard. Establish a reliable data pipeline first.
 
 The following should be decided during implementation rather than assumed here:
 
-- implementation language for the CLI
-- exact upstream API endpoints for each health metric
-- normalized database schema
-- PostgreSQL vs a time-series extension or another store
-- raw-data file format and retention policy
+- exact upstream API behavior for newly introduced metrics
+- future normalized schema refinements
+- whether PostgreSQL should later gain the TimescaleDB extension
+- long-term raw-data retention and compression policy
 - dashboard technology
 - scheduler / deployment mechanism
 - whether a separate HTTP API is needed

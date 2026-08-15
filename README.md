@@ -1,130 +1,167 @@
 # vitald
 
-`vitald` is a self-hosted health data platform for collecting, preserving, and analyzing personal health data from Fitbit devices through the Google Health API.
+`vitald` is a self-hosted CLI for collecting, preserving, and querying personal Fitbit data through the Google Health API. It archives provider responses, normalizes useful fields into PostgreSQL, and maintains incremental synchronization checkpoints.
 
-The project aims to keep health history independently accessible outside vendor applications while providing a reliable foundation for custom queries, dashboards, and long-term trend analysis.
+> This project is not intended for medical diagnosis or clinical decision support.
 
-> `vitald` is an early-stage personal project. It is not intended for medical diagnosis or clinical decision support.
+## Supported data
 
-## Goals
+- daily steps
+- heart-rate samples
+- daily resting heart rate
+- daily HRV
+- sleep sessions and duration
+- exercises, duration, calories, and active-zone minutes
+- daily calories burned
+- daily calories ingested, when nutrition logs are available
+- weight
 
-- Fetch health and fitness data through the Google Health API.
-- Preserve original provider responses for inspection and reprocessing.
-- Normalize useful metrics into a stable, queryable representation.
-- Support incremental and idempotent synchronization.
-- Run reliably on a self-hosted homelab.
-- Provide data for SQL analysis and replaceable dashboard tools such as Grafana.
+The current Google Health schema does not expose Fitbit sleep score or cardio load. `vitald` records their unavailability explicitly and preserves raw responses so these fields can be added if the API exposes them later. Active-zone minutes are retained but are not mislabeled as cardio load.
 
-Initial metrics of interest include steps, heart rate, resting heart rate, HRV, sleep, workouts, and energy expenditure.
-
-## Architecture
+## Data flow
 
 ```text
 Google Health API
         │
         ▼
-  vitald CLI ingestor
-        │
-        ├──► Raw JSON archive
-        │
-        └──► Normalized database
-                    │
-                    ▼
-             Queries and dashboards
+     vitald
+        ├── exact JSON response archive
+        ├── normalized PostgreSQL records
+        └── synchronization checkpoints
+                         │
+                         ▼
+                 SQL / Grafana
 ```
 
-The ingestion pipeline is the first priority. Database storage, scheduled synchronization, and dashboards will be introduced after fetching and archiving one metric works reliably.
-
-See [`docs/PROJECT.md`](docs/PROJECT.md) for the complete project direction and design principles.
-
-## Current status
-
-The repository currently contains the initial Go and Cobra CLI scaffold. The `fetch steps` command validates a date range and prints the intended operation; it does not call the Google Health API yet.
-
-Planned initial command structure:
-
-```text
-vitald
-├── auth
-├── fetch
-│   └── steps
-├── sync
-└── status
-```
+All time ranges are closed-open (`[from, to)`). Daily boundaries default to `Asia/Riyadh` and can be changed with `VITALD_TIMEZONE`.
 
 ## Requirements
 
-- Go 1.26.4 or later
-- A Google Cloud project with the Google Health API enabled (required once API integration is implemented)
-- OAuth 2.0 credentials with the necessary Google Health read scopes
+- Go 1.26.4 or later, or Docker
+- PostgreSQL 17+
+- A Google Cloud project with the Google Health API enabled
+- A Google OAuth web client with this authorized redirect URI:
 
-## Development
+```text
+http://127.0.0.1:8765/callback
+```
 
-Clone the repository and download its dependencies:
+Google Health scopes are restricted. In Google Cloud OAuth testing mode, refresh tokens generally expire after seven days.
+
+## Configuration
+
+Copy the example and fill in your credentials. For direct local execution, export it into the shell:
 
 ```bash
-git clone https://github.com/yousefakbar/vitald.git
-cd vitald
+cp .env.example .env
+set -a
+source .env
+set +a
+```
+
+Docker Compose reads `.env` automatically.
+
+Important variables:
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `GOOGLE_CLIENT_ID` | required | OAuth client ID |
+| `GOOGLE_CLIENT_SECRET` | required | OAuth client secret |
+| `GOOGLE_REDIRECT_URL` | `http://127.0.0.1:8765/callback` | OAuth callback |
+| `DATABASE_URL` | required | PostgreSQL connection URL |
+| `VITALD_TIMEZONE` | `Asia/Riyadh` | IANA daily-boundary time zone |
+| `VITALD_TOKEN_PATH` | `~/.config/vitald/token.json` | OAuth token file |
+| `VITALD_RAW_DATA_PATH` | `data/raw` | raw archive root |
+| `VITALD_LOG_FORMAT` | `text` | `text` or `json` |
+
+Tokens are written atomically with `0600` permissions. Health data, `.env`, and tokens must not be committed.
+
+## Local development
+
+```bash
 go mod download
-```
-
-Run the CLI directly:
-
-```bash
-go run ./cmd/vitald --help
-```
-
-Build a local executable:
-
-```bash
-go build -o bin/vitald ./cmd/vitald
-./bin/vitald --help
-```
-
-Run the current placeholder command:
-
-```bash
-go run ./cmd/vitald fetch steps \
-  --from 2026-08-01 \
-  --to 2026-08-08
-```
-
-Date ranges use a half-open interval: `--from` is inclusive and `--to` is exclusive.
-
-Run checks:
-
-```bash
 go test ./...
 go vet ./...
+go build -o bin/vitald ./cmd/vitald
 ```
+
+Authorize access. The URL is always printed. On a desktop, run:
+
+```bash
+./bin/vitald auth
+# Use --no-open to prevent automatic browser launch.
+```
+
+For a headless homelab, forward the callback port and then open the printed URL on your desktop:
+
+```bash
+ssh -L 8765:127.0.0.1:8765 your-homelab
+./bin/vitald auth --no-open
+```
+
+The SSH tunnel carries the browser's `127.0.0.1:8765` callback to the homelab process.
+
+Verify authentication:
+
+```bash
+./bin/vitald identity
+```
+
+Fetch one metric:
+
+```bash
+./bin/vitald fetch steps --from 2026-08-01 --to 2026-08-08
+./bin/vitald fetch heart-rate --from 2026-08-01 --to 2026-08-02
+```
+
+Synchronize all metrics. The first run defaults to 30 days of history and subsequent runs use checkpoints with a two-day overlap for late provider updates:
+
+```bash
+./bin/vitald sync
+./bin/vitald sync --initial-days 90
+./bin/vitald status
+```
+
+Database migrations are embedded in the binary and applied automatically before data commands.
+
+## Docker Compose
+
+```bash
+cp .env.example .env
+# Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and POSTGRES_PASSWORD.
+docker compose up -d postgres
+docker compose run --rm --service-ports vitald auth
+docker compose run --rm vitald sync --initial-days 30
+```
+
+The Compose deployment uses persistent volumes for PostgreSQL, raw data, and OAuth configuration.
+
+## Storage model
+
+Normalized records live in `health_records` with common timestamp, local-date, numeric value, unit, provenance, attributes, and original-record columns. This supports direct Grafana queries while retaining provider-specific details in JSONB.
+
+Raw response metadata and SHA-256 checksums are stored in `raw_archives`. Raw files are retained indefinitely for now.
+
+Plain PostgreSQL is intentional at the current personal-data scale. TimescaleDB may be useful later for heart-rate hypertables, compression, and continuous aggregates, but adding it now would create deployment complexity without a demonstrated need.
 
 ## Repository structure
 
 ```text
-.
-├── cmd/vitald/       # executable entry point
-├── internal/cli/     # Cobra commands and argument handling
-├── docs/             # project design and architecture
-├── go.mod
-└── README.md
+cmd/vitald/                         executable entry point
+internal/cli/                       Cobra commands and dependency wiring
+internal/config/                    environment configuration
+internal/provider/googlehealth/     OAuth and Google Health REST client
+internal/archive/                   atomic raw response archive
+internal/ingest/                    pagination, normalization, orchestration
+internal/storage/postgres/          PostgreSQL store and embedded migrations
+docs/PROJECT.md                     high-level design
 ```
 
-Provider integration, raw archival, normalization, and storage packages will be added incrementally as the first end-to-end ingestion path is implemented.
+## Scheduling
 
-## Roadmap
+`vitald sync` is deliberately a terminating command. Run it from cron, a systemd timer, or a container scheduler rather than keeping an internal scheduler daemon alive.
 
-1. Implement Google OAuth 2.0 authorization and refresh-token handling.
-2. Fetch steps for an explicit time range.
-3. Archive raw API responses locally.
-4. Add fixture-based parsing and normalization tests.
-5. Persist normalized records in PostgreSQL.
-6. Add checkpoints, retries, pagination, and idempotent synchronization.
-7. Expand support to heart rate, HRV, sleep, and other metrics.
-8. Connect the normalized store to dashboards.
-
-## Data and secrets
-
-Do not commit OAuth credentials, access tokens, refresh tokens, health data, or local configuration. The repository ignores `.env`, `*.local`, and the local `data/` directory by default.
+See [`docs/PROJECT.md`](docs/PROJECT.md) for the broader project direction.
 
 ## License
 
