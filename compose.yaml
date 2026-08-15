@@ -15,7 +15,12 @@ services:
       - postgres-data:/var/lib/postgresql/data
 
   vitald:
-    build: .
+    build:
+      context: .
+      args:
+        VERSION: ${VITALD_VERSION:-}
+        COMMIT: ${VITALD_COMMIT:-}
+        DATE: ${VITALD_BUILD_DATE:-}
     depends_on:
       postgres:
         condition: service_healthy

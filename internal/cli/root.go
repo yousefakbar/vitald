@@ -17,6 +17,6 @@ func NewRootCommand(build BuildInfo) *cobra.Command {
 		Version:       build.Version,
 	}
 	cmd.SetVersionTemplate(fmt.Sprintf("vitald %s\ncommit: %s\nbuilt: %s\n", build.Version, build.Commit, build.Date))
-	cmd.AddCommand(newAuthCommand(), newIdentityCommand(), newFetchCommand(), newSyncCommand(), newStatusCommand())
+	cmd.AddCommand(newAuthCommand(), newIdentityCommand(), newFetchCommand(), newSyncCommand(build.Version), newStatusCommand(), newRunsCommand())
 	return cmd
 }

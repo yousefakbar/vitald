@@ -68,12 +68,12 @@ func (s *Service) Fetch(ctx context.Context, metric string, from, to time.Time, 
 			end = to
 		}
 		summary, err := s.fetchRange(ctx, metric, start, end)
-		if err != nil {
-			return total, err
-		}
 		total.Pages += summary.Pages
 		total.Records += summary.Records
 		total.Files = append(total.Files, summary.Files...)
+		if err != nil {
+			return total, err
+		}
 		start = end
 	}
 	if checkpoint {

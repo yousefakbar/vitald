@@ -27,7 +27,8 @@ Google Health API
      vitald
         ├── exact JSON response archive
         ├── normalized PostgreSQL records
-        └── synchronization checkpoints
+        ├── synchronization checkpoints
+        └── synchronization run history
                          │
                          ▼
                  SQL / Grafana
@@ -120,7 +121,11 @@ Synchronize all metrics. The first run defaults to 30 days of history and subseq
 ./bin/vitald sync
 ./bin/vitald sync --initial-days 90
 ./bin/vitald status
+./bin/vitald runs list
+./bin/vitald runs show 1
 ```
+
+Each `sync` execution records its overall status, duration, page and record counts, per-metric ranges, checkpoints, and errors. A run is marked `partial` when some metrics succeed and others fail. Interrupted runs are marked `cancelled` when graceful cleanup is possible; hard-killed processes remain `running` for later diagnosis.
 
 Database migrations are embedded in the binary and applied automatically before data commands.
 
@@ -141,6 +146,8 @@ The Compose deployment uses persistent volumes for PostgreSQL, raw data, and OAu
 Normalized records live in `health_records` with common timestamp, local-date, numeric value, unit, provenance, attributes, and original-record columns. This supports direct Grafana queries while retaining provider-specific details in JSONB.
 
 Raw response metadata and SHA-256 checksums are stored in `raw_archives`. Raw files are retained indefinitely for now.
+
+Synchronization history is stored in `sync_runs` and `sync_run_metrics`; the `sync_run_history` view provides aggregate status and volume totals. Existing health data is not retroactively assigned to a run—history begins with the first `sync` after the migration is applied.
 
 Plain PostgreSQL is intentional at the current personal-data scale. TimescaleDB may be useful later for heart-rate hypertables, compression, and continuous aggregates, but adding it now would create deployment complexity without a demonstrated need.
 
