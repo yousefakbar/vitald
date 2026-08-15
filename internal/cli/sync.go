@@ -36,6 +36,27 @@ func newSyncCommand(version string) *cobra.Command {
 
 func executeSync(cmd *cobra.Command, runtime *runtime, initialDays int, version string) (returnErr error) {
 	ctx := cmd.Context()
+	lease, acquired, err := runtime.store.TryAcquireSyncLease(ctx)
+	if err != nil {
+		return err
+	}
+	if !acquired {
+		return errors.New("another synchronization is already running")
+	}
+	defer func() {
+		cleanupCtx, cancel := historyContext(ctx)
+		defer cancel()
+		returnErr = errors.Join(returnErr, lease.Release(cleanupCtx))
+	}()
+
+	recovered, err := lease.RecoverStaleSyncRuns(ctx)
+	if err != nil {
+		return err
+	}
+	if recovered.Runs > 0 {
+		fmt.Fprintf(cmd.ErrOrStderr(), "Recovered %d abandoned synchronization run(s) and %d metric(s)\n", recovered.Runs, recovered.Metrics)
+	}
+
 	runID, err := runtime.store.StartSyncRun(ctx, postgres.StartSyncRunInput{
 		InitialDays: initialDays, Timezone: runtime.cfg.Timezone, VitaldVersion: version,
 	})

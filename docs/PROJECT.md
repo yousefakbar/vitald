@@ -409,10 +409,8 @@ When making implementation decisions, prefer:
 
 The initial CLI ingestion milestone is complete: OAuth, real metric fetching, exact raw archival, normalization, PostgreSQL persistence, incremental checkpoints, and synchronization run history are implemented.
 
-The next milestone is **safe unattended synchronization**:
+The current milestone is **safe unattended synchronization**. PostgreSQL advisory locking now prevents concurrent syncs, and the next lock holder recovers stale `running` history left by a hard-killed process. Remaining work is to:
 
-- prevent concurrent syncs with a PostgreSQL advisory lock
-- recover stale `running` history left by hard-killed processes
 - add a `vitald doctor` command
 - establish backup and restore procedures
 - schedule `vitald sync` with a systemd timer

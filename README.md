@@ -128,7 +128,7 @@ Synchronize all metrics. The first run defaults to 30 days of history and subseq
 ./bin/vitald runs show 1
 ```
 
-Each `sync` execution records its overall status, duration, page and record counts, per-metric ranges, checkpoints, and errors. A run is marked `partial` when some metrics succeed and others fail. Interrupted runs are marked `cancelled` when graceful cleanup is possible; hard-killed processes remain `running` for later diagnosis.
+Each `sync` execution records its overall status, duration, page and record counts, per-metric ranges, checkpoints, and errors. A run is marked `partial` when some metrics succeed and others fail. Interrupted runs are marked `cancelled` when graceful cleanup is possible. A PostgreSQL advisory lock prevents overlapping syncs; after a hard kill, the next sync finalizes abandoned `running` history as failed.
 
 Database migrations are embedded in the binary and applied automatically before data commands.
 

@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the living handoff document for the project. It describes what the repository actually implements today, the decisions behind it, known gaps, and the next planned work. Update it whenever behavior, architecture, schema, deployment, or priorities change.
 >
-> **Last updated:** 2026-08-15 at commit `c5fbe6f` (`feat: add synchronization run history`).
+> **Last updated:** 2026-08-15 after implementing synchronization locking and stale-run recovery on top of commit `c5fbe6f`.
 
 ## 1. Project State at a Glance
 
@@ -26,6 +26,8 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 - [x] Incremental multi-metric synchronization with two-day overlap
 - [x] Per-metric checkpoints updated only after successful persistence
 - [x] Overall and per-metric synchronization run history
+- [x] PostgreSQL session advisory lock preventing concurrent `sync` executions
+- [x] Recovery/finalization of stale `running` synchronization rows
 - [x] Partial-failure behavior: successful metrics persist even if another fails
 - [x] Text or JSON structured logging through `log/slog`
 - [x] Multi-stage container image and Podman/Docker Compose deployment
@@ -33,8 +35,6 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 
 ### Not implemented yet
 
-- [ ] PostgreSQL advisory lock preventing concurrent `sync` executions
-- [ ] Recovery/finalization of stale `running` synchronization rows
 - [ ] `vitald doctor` health checks
 - [ ] Automated backup and tested restore workflow
 - [ ] systemd service/timer or another production scheduler
@@ -382,6 +382,9 @@ Existing pre-migration health records are not assigned to synthetic runs. Histor
 ```text
 load configuration and credentials
     → connect/migrate PostgreSQL
+    → acquire the PostgreSQL session advisory lock
+    → fail immediately if another sync holds the lock
+    → finalize abandoned running history from a previous process
     → create sync_runs(status=running)
     → determine exclusive end at tomorrow's Asia/Riyadh midnight
     → for each supported metric:
@@ -399,7 +402,9 @@ load configuration and credentials
     → finalize sync run
 ```
 
-If one metric fails, later metrics are still attempted. Completed pages and records are counted even when a later page in that metric fails. Cleanup uses a short context detached from cancellation so graceful `SIGINT`/`SIGTERM` can finalize history.
+If one metric fails, later metrics are still attempted. Completed pages and records are counted even when a later page in that metric fails. Cleanup uses a short context detached from cancellation so graceful `SIGINT`/`SIGTERM` can finalize history and release the advisory lock.
+
+The advisory lock is held on a dedicated pooled PostgreSQL connection for the complete sync. A second sync exits before creating run history. PostgreSQL releases the lock automatically if the process or connection dies. After acquiring the lock, the next sync atomically marks abandoned `running` metrics and runs as failed before creating its own run.
 
 ## 11. Configuration and Secrets
 
@@ -488,48 +493,28 @@ Test coverage includes:
 - stable daily record keys
 - sync status derivation
 - bounded UTF-8-safe run errors
-- PostgreSQL migration and synchronization-history CRUD when `VITALD_TEST_DATABASE_URL` is set
+- PostgreSQL migration, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
 
 The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The container image has been built and executed with rootless Podman. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment.
 
 ## 14. Known Limitations and Risks
 
-1. **No synchronization lock yet.** Two `vitald sync` processes can overlap, race checkpoint updates, duplicate raw archives, and confuse run history. Normalized upserts remain mostly idempotent, but concurrent sync is not supported.
-2. **No stale-run recovery.** `SIGKILL`, host power loss, or process/container termination can leave `sync_runs` and `sync_run_metrics` in `running` state.
-3. **No automated backups.** PostgreSQL, raw data, and the OAuth token currently rely on Podman named volumes.
-4. **No scheduler.** Sync is still invoked manually.
-5. **No retention policy.** Raw pages are never compressed or deleted.
-6. **Generic JSONB schema.** It is flexible and queryable, but analytics views are still needed before Grafana dashboards are stable and convenient.
-7. **List endpoints currently use `dataPoints.list`, not the reconciled stream.** With multiple overlapping sources, future work should evaluate whether normalization should use `dataPoints:reconcile` while retaining raw source pages.
-8. **Manual fetches are outside run history.** `sync_runs` tracks only `vitald sync`; `fetch` is represented through archives and imported records.
-9. **Archive metadata is not linked to numeric sync-run IDs.** `raw_archives.run_id` is the archive directory timestamp identifier.
-10. **OAuth is single-user and file-backed.** This matches the current project scope but is not a multi-user secret-management design.
+1. **No automated backups.** PostgreSQL, raw data, and the OAuth token currently rely on Podman named volumes.
+2. **No scheduler.** Sync is still invoked manually.
+3. **No retention policy.** Raw pages are never compressed or deleted.
+4. **Generic JSONB schema.** It is flexible and queryable, but analytics views are still needed before Grafana dashboards are stable and convenient.
+5. **List endpoints currently use `dataPoints.list`, not the reconciled stream.** With multiple overlapping sources, future work should evaluate whether normalization should use `dataPoints:reconcile` while retaining raw source pages.
+6. **Manual fetches are outside run history.** `sync_runs` tracks only `vitald sync`; `fetch` is represented through archives and imported records.
+7. **Archive metadata is not linked to numeric sync-run IDs.** `raw_archives.run_id` is the archive directory timestamp identifier.
+8. **OAuth is single-user and file-backed.** This matches the current project scope but is not a multi-user secret-management design.
 
 ## 15. Next Planned Work
 
-### Immediate next milestone: concurrency safety
+### Immediate next milestone: operational health checks
 
-Implement a PostgreSQL session advisory lock around the entire `sync` execution:
+Implement `vitald doctor` to validate configuration, PostgreSQL connectivity and migrations, OAuth token state, raw archive writeability, and synchronization state. Define text and machine-readable output plus failure-oriented exit status behavior before implementation.
 
-```sql
-SELECT pg_try_advisory_lock(hashtextextended('vitald-sync', 0));
-```
-
-Expected behavior:
-
-- Acquire the lock before creating a new sync run.
-- Hold the same database connection for the whole sync.
-- If unavailable, exit immediately with `another synchronization is already running`.
-- Once the lock is acquired, mark older `running` runs/metrics as failed because no prior lock holder remains.
-- Release automatically on connection/process death and explicitly on normal completion.
-
-Acceptance checks:
-
-1. Start one sync and then a second; the second must fail immediately.
-2. Hard-kill a sync and start another; the abandoned run must be finalized as failed.
-3. Confirm normal and partial run history remains correct.
-
-### Planned order after locking
+### Planned order
 
 1. `vitald doctor`
 2. PostgreSQL/raw/token backup and restore workflow
