@@ -46,12 +46,12 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 1. Provision least-privilege PostgreSQL access
 
-- [ ] Add documented environment variables for the Grafana database login.
-- [ ] Add an idempotent provisioning workflow for creating/updating the login.
-- [ ] Grant only database connection, `analytics` schema usage, and analytics-view `SELECT` access.
-- [ ] Ensure future analytics views can be granted predictably without exposing base tables.
-- [ ] Verify the role can query every analytics view.
-- [ ] Verify the role cannot query `health_records`, write data, create objects, or escalate privileges.
+- [x] Add documented environment variables for the Grafana database login.
+- [x] Add an idempotent provisioning workflow for creating/updating the login.
+- [x] Grant only database connection, `analytics` schema usage, and analytics-view `SELECT` access.
+- [x] Ensure future analytics views can be granted predictably without exposing base tables.
+- [x] Verify the role can query every analytics view.
+- [x] Verify the role cannot query `health_records`, write data, create objects, or escalate privileges.
 
 ### 2. Add the baseline Grafana Compose service
 
@@ -179,3 +179,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 
 - 2026-08-16: Initial plan created.
 - 2026-08-16: Architecture accepted with loopback port `3107` and daily min/average/max heart-rate trends; point 0 completed.
+- 2026-08-16: Point 1 completed; added idempotent Grafana database-role provisioning and verified analytics-only read access, denied base-table/write/create access, defensive role settings, and repeated execution.
