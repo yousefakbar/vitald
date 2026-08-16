@@ -7,9 +7,10 @@ source "$ROOT/scripts/lib/backup-common.sh"
 
 snapshot=latest
 target_project=""
+skip_build=${VITALD_SKIP_BUILD:-false}
 usage() {
   cat <<'EOF'
-Usage: scripts/restore.sh [--snapshot ID|latest] --target-project NAME
+Usage: scripts/restore.sh [--snapshot ID|latest] --target-project NAME [--no-build]
 
 Restores into a fresh Compose project. Existing/in-place projects are refused.
 EOF
@@ -18,6 +19,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --snapshot) snapshot=${2:?missing snapshot}; shift 2 ;;
     --target-project) target_project=${2:?missing target project}; shift 2 ;;
+    --no-build) skip_build=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -36,7 +38,9 @@ if [[ -n "$("${COMPOSE[@]}" -p "$target_project" ps -aq 2>/dev/null || true)" ]]
   exit 1
 fi
 
-"${COMPOSE[@]}" -p "$target_project" --profile backup build restore vitald
+if [[ "$skip_build" != true ]]; then
+  "${COMPOSE[@]}" -p "$target_project" --profile backup build restore vitald
+fi
 "${COMPOSE[@]}" -p "$target_project" up -d postgres
 wait_for_postgres "$target_project"
 "${COMPOSE[@]}" -p "$target_project" --profile backup run --rm -T --no-deps \

@@ -1,0 +1,10 @@
+[Unit]
+Description=Handle failure of vitald unit %i
+Documentation=file://@VITALD_ROOT@/docs/SCHEDULING.md
+
+[Service]
+Type=oneshot
+WorkingDirectory=@VITALD_ROOT@
+Environment="VITALD_ENV_FILE=@VITALD_ENV_FILE@"
+ExecStart=@VITALD_ROOT@/scripts/systemd-failure-hook.sh %i
+TimeoutStartSec=5min

@@ -7,9 +7,10 @@ source "$ROOT/scripts/lib/backup-common.sh"
 
 snapshot=latest
 keep=false
+skip_build=${VITALD_SKIP_BUILD:-false}
 usage() {
   cat <<'EOF'
-Usage: scripts/verify-backup.sh [--snapshot ID|latest] [--keep]
+Usage: scripts/verify-backup.sh [--snapshot ID|latest] [--keep] [--no-build]
 
 Checks the Restic repository and performs a restore drill into a temporary
 Compose project. The temporary project is removed unless --keep is supplied.
@@ -19,6 +20,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --snapshot) snapshot=${2:?missing snapshot}; shift 2 ;;
     --keep) keep=true; shift ;;
+    --no-build) skip_build=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) usage >&2; printf 'unknown argument: %s\n' "$1" >&2; exit 2 ;;
   esac
@@ -39,8 +41,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-"${COMPOSE[@]}" --profile backup build backup
+if [[ "$skip_build" != true ]]; then
+  "${COMPOSE[@]}" --profile backup build backup
+fi
 "${COMPOSE[@]}" --profile backup run --rm -T --no-deps \
   "${RESTIC_RUN_ARGS[@]}" backup check
-"$ROOT/scripts/restore.sh" --snapshot "$snapshot" --target-project "$target"
+restore_args=(--snapshot "$snapshot" --target-project "$target")
+[[ "$skip_build" != true ]] || restore_args+=(--no-build)
+"$ROOT/scripts/restore.sh" "${restore_args[@]}"
 printf 'Backup verification and restore drill succeeded for snapshot %s.\n' "$snapshot"

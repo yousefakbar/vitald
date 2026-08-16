@@ -1,0 +1,14 @@
+[Unit]
+Description=Verify vitald backup with an isolated restore drill
+Documentation=file://@VITALD_ROOT@/docs/SCHEDULING.md
+After=vitald-backup.service
+OnFailure=vitald-failure@%n.service
+@VITALD_MOUNT_DIRECTIVE@
+
+[Service]
+Type=oneshot
+WorkingDirectory=@VITALD_ROOT@
+Environment="VITALD_ENV_FILE=@VITALD_ENV_FILE@"
+Environment="VITALD_CONTAINER_ENGINE=@VITALD_CONTAINER_ENGINE@"
+ExecStart=@VITALD_ROOT@/scripts/systemd-run.sh verify-backup
+TimeoutStartSec=24h

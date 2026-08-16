@@ -7,6 +7,7 @@ backup_project_root() {
 load_backup_environment() {
   local root=$1
   local env_file=${VITALD_ENV_FILE:-$root/.env}
+  local configured_engine=${VITALD_CONTAINER_ENGINE:-}
   if [[ "$env_file" != /* ]]; then
     env_file="$root/$env_file"
   fi
@@ -16,6 +17,10 @@ load_backup_environment() {
     # shellcheck disable=SC1090
     source "$env_file"
     set +a
+  fi
+  export VITALD_ENV_FILE="$env_file"
+  if [[ -n "$configured_engine" ]]; then
+    export VITALD_CONTAINER_ENGINE="$configured_engine"
   fi
   : "${VITALD_BACKUP_REPOSITORY:?set VITALD_BACKUP_REPOSITORY}"
   : "${RESTIC_PASSWORD_FILE:?set RESTIC_PASSWORD_FILE}"

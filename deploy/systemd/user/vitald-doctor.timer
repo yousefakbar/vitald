@@ -1,0 +1,13 @@
+[Unit]
+Description=Check vitald operational health daily
+
+[Timer]
+OnCalendar=*-*-* 02:00:00 Asia/Riyadh
+RandomizedDelaySec=10min
+FixedRandomDelay=true
+Persistent=true
+AccuracySec=1min
+Unit=vitald-doctor.service
+
+[Install]
+WantedBy=timers.target

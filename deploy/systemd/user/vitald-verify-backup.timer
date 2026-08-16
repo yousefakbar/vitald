@@ -1,0 +1,13 @@
+[Unit]
+Description=Verify the latest vitald backup weekly
+
+[Timer]
+OnCalendar=Sun *-*-* 04:00:00 Asia/Riyadh
+RandomizedDelaySec=10min
+FixedRandomDelay=true
+Persistent=true
+AccuracySec=1min
+Unit=vitald-verify-backup.service
+
+[Install]
+WantedBy=timers.target

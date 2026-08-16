@@ -409,11 +409,9 @@ When making implementation decisions, prefer:
 
 The initial CLI ingestion milestone is complete: OAuth, real metric fetching, exact raw archival, normalization, PostgreSQL persistence, incremental checkpoints, and synchronization run history are implemented.
 
-The current milestone is **safe unattended synchronization**. PostgreSQL advisory locking prevents concurrent syncs, the next lock holder recovers stale `running` history left by a hard-killed process, `vitald doctor` reports operational readiness, and encrypted Restic snapshots have a tested fresh-instance restore path. Remaining work is to:
+The **safe unattended synchronization** milestone is implemented: PostgreSQL advisory locking prevents concurrent syncs, the next lock holder recovers stale `running` history left by a hard-killed process, `vitald doctor` reports operational readiness, encrypted Restic snapshots have a tested fresh-instance restore path, and rootless systemd timers schedule sync, diagnostics, backups, and restore verification.
 
-- schedule synchronization, backups, and restore verification with systemd timers
-
-Only after the pipeline is safe to operate unattended should the project add stable analytics views and Grafana dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
+The next milestone is stable analytics SQL views, followed by Grafana provisioning and dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
 
 ## Open Decisions
 

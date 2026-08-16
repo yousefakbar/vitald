@@ -78,7 +78,7 @@ Ensure PostgreSQL is running and the OAuth token and raw archive exist, then run
 
 The script:
 
-1. Builds the dedicated backup image.
+1. Builds the dedicated backup image for manual runs; systemd jobs use the image built during scheduler installation.
 2. Starts PostgreSQL only when it is not already running, then launches the helper with `--no-deps` so Compose cannot reconcile or stop an active `vitald` process.
 3. Acquires the same PostgreSQL advisory lock used by `vitald sync` and aborts if synchronization is active.
 4. Creates a consistent custom-format `pg_dump` in a mode-`0700` temporary directory.
@@ -174,4 +174,4 @@ A backup is not considered operationally verified until this restore drill has s
 - Store the Restic password separately and include it in the homelab secret-recovery plan.
 - Restrict `.env`, password files, SSH keys, and cloud credentials to the operator.
 - Test restoration after changing PostgreSQL, Restic, container, or storage infrastructure.
-- Monitor backup exit status and age once systemd scheduling is added.
+- Monitor backup service status and snapshot age through the systemd workflow documented in [`SCHEDULING.md`](SCHEDULING.md).

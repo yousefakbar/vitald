@@ -1,0 +1,13 @@
+[Unit]
+Description=Synchronize vitald every six hours
+
+[Timer]
+OnCalendar=*-*-* 00,06,12,18:15:00 Asia/Riyadh
+RandomizedDelaySec=10min
+FixedRandomDelay=true
+Persistent=true
+AccuracySec=1min
+Unit=vitald-sync.service
+
+[Install]
+WantedBy=timers.target

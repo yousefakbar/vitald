@@ -1,0 +1,13 @@
+[Unit]
+Description=Create an encrypted vitald backup daily
+
+[Timer]
+OnCalendar=*-*-* 03:00:00 Asia/Riyadh
+RandomizedDelaySec=10min
+FixedRandomDelay=true
+Persistent=true
+AccuracySec=1min
+Unit=vitald-backup.service
+
+[Install]
+WantedBy=timers.target

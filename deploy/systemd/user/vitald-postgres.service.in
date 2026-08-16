@@ -1,0 +1,17 @@
+[Unit]
+Description=vitald PostgreSQL container
+Documentation=file://@VITALD_ROOT@/docs/SCHEDULING.md
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=@VITALD_ROOT@
+Environment="VITALD_ENV_FILE=@VITALD_ENV_FILE@"
+Environment="VITALD_CONTAINER_ENGINE=@VITALD_CONTAINER_ENGINE@"
+ExecStart=@VITALD_ROOT@/scripts/systemd-run.sh postgres-start
+ExecStop=@VITALD_ROOT@/scripts/systemd-run.sh postgres-stop
+TimeoutStartSec=2min
+TimeoutStopSec=2min
+
+[Install]
+WantedBy=default.target

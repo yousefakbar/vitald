@@ -7,6 +7,7 @@
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md): living architecture, implementation status, limitations, and agent handoff
 - [`docs/PROJECT.md`](docs/PROJECT.md): long-term goals and design direction
 - [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md): encrypted backup and disaster-recovery workflow
+- [`docs/SCHEDULING.md`](docs/SCHEDULING.md): rootless systemd services, timers, logs, and operations
 
 ## Supported data
 
@@ -198,9 +199,17 @@ docs/PROJECT.md                     high-level design
 
 ## Scheduling
 
-`vitald sync` is deliberately a terminating command. Run it from cron, a systemd timer, or a container scheduler rather than keeping an internal scheduler daemon alive.
+`vitald sync` remains a terminating command. Version-controlled rootless user-systemd units schedule sync every six hours, daily doctor and backup jobs, and a weekly isolated restore drill.
 
-See [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) for the current implementation context and [`docs/PROJECT.md`](docs/PROJECT.md) for the broader project direction.
+Inspect generated units without changing the system, then install them:
+
+```bash
+./scripts/install-systemd.sh --dry-run
+./scripts/install-systemd.sh
+loginctl enable-linger "$USER"
+```
+
+See [`docs/SCHEDULING.md`](docs/SCHEDULING.md) for schedules, logging, notification hooks, customization, updates, and uninstall instructions. See [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md) for current implementation context and [`docs/PROJECT.md`](docs/PROJECT.md) for broader direction.
 
 ## License
 
