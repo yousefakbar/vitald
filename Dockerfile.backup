@@ -1,0 +1,9 @@
+FROM postgres:17-alpine
+
+RUN apk add --no-cache bash ca-certificates jq openssh-client restic tzdata
+
+COPY scripts/backup-container.sh /usr/local/bin/vitald-backup
+RUN chmod 0755 /usr/local/bin/vitald-backup
+
+USER root
+ENTRYPOINT ["/usr/local/bin/vitald-backup"]

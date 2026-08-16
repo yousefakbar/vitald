@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -57,6 +58,13 @@ func (s *Store) Migrate(ctx context.Context) error {
 	if _, err := s.pool.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations (
 		version text PRIMARY KEY, applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
 		return fmt.Errorf("initialize schema migrations: %w", err)
+	}
+	status, err := s.MigrationStatus(ctx)
+	if err != nil {
+		return err
+	}
+	if len(status.Unknown) > 0 {
+		return fmt.Errorf("database contains migrations unknown to this binary: %s", strings.Join(status.Unknown, ", "))
 	}
 	entries, err := migrationFiles.ReadDir("migrations")
 	if err != nil {

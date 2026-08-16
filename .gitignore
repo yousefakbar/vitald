@@ -7,9 +7,11 @@
 *.local
 token.json
 client_secret*.json
+.restic-password
 
 # Runtime data
 /data/
+/backups/
 
 # Editor and OS files
 .vscode/

@@ -24,7 +24,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    env_file: .env
+    env_file: ${VITALD_ENV_FILE:-.env}
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER:-vitald}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vitald}?sslmode=disable
       VITALD_TOKEN_PATH: /config/token.json
@@ -35,6 +35,44 @@ services:
     volumes:
       - vitald-config:/config
       - vitald-data:/data
+
+  backup:
+    profiles: ["backup"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    user: "0:0"
+    security_opt:
+      - label=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ${VITALD_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-vitald}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vitald}?sslmode=disable
+      VITALD_VERSION: ${VITALD_VERSION:-dev}
+      VITALD_COMMIT: ${VITALD_COMMIT:-unknown}
+    volumes:
+      - vitald-config:/source/config:ro
+      - vitald-data:/source/data:ro
+
+  restore:
+    profiles: ["backup"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
+    user: "0:0"
+    security_opt:
+      - label=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+    env_file: ${VITALD_ENV_FILE:-.env}
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-vitald}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-vitald}?sslmode=disable
+    volumes:
+      - vitald-config:/source/config
+      - vitald-data:/source/data
 
 volumes:
   postgres-data:

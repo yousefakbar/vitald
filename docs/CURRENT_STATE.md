@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the living handoff document for the project. It describes what the repository actually implements today, the decisions behind it, known gaps, and the next planned work. Update it whenever behavior, architecture, schema, deployment, or priorities change.
 >
-> **Last updated:** 2026-08-15 after implementing `vitald doctor` on top of commit `79951a5`.
+> **Last updated:** 2026-08-15 after implementing encrypted backup and fresh-instance restore on top of commit `e2570ce`.
 
 ## 1. Project State at a Glance
 
@@ -29,6 +29,7 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 - [x] PostgreSQL session advisory lock preventing concurrent `sync` executions
 - [x] Recovery/finalization of stale `running` synchronization rows
 - [x] `vitald doctor` offline diagnostics, JSON output, and optional online identity check
+- [x] Encrypted Restic backup, retention, repository checking, and fresh-instance restore drill
 - [x] Partial-failure behavior: successful metrics persist even if another fails
 - [x] Text or JSON structured logging through `log/slog`
 - [x] Multi-stage container image and Podman/Docker Compose deployment
@@ -36,7 +37,6 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 
 ### Not implemented yet
 
-- [ ] Automated backup and tested restore workflow
 - [ ] systemd service/timer or another production scheduler
 - [ ] Stable analytics SQL views
 - [ ] Grafana provisioning and dashboards
@@ -191,6 +191,15 @@ compose.yaml
 
 Dockerfile
     Multi-stage Go build; embeds version, commit, and build date.
+
+Dockerfile.backup
+    One-shot Restic and PostgreSQL-client image for backup and restore.
+
+scripts/
+    Host backup, restore, verification, and container-side orchestration scripts.
+
+docs/BACKUP_RESTORE.md
+    Repository configuration, backup, fresh restore, verification, and cutover procedures.
 
 docs/PROJECT.md
     Long-term goals, principles, and high-level intended direction.
@@ -428,6 +437,19 @@ Environment variables:
 | `VITALD_LOG_FORMAT` | no | `text` |
 | `VITALD_HTTP_TIMEOUT` | no | `60s` |
 
+Backup-only environment variables:
+
+| Variable | Required | Default |
+|---|---:|---|
+| `VITALD_BACKUP_REPOSITORY` | for backup/restore | none |
+| `RESTIC_PASSWORD_FILE` | for backup/restore | none |
+| `VITALD_BACKUP_KEEP_DAILY` | no | `7` |
+| `VITALD_BACKUP_KEEP_WEEKLY` | no | `4` |
+| `VITALD_BACKUP_KEEP_MONTHLY` | no | `12` |
+| `VITALD_BACKUP_HOST` | no | `vitald` |
+| `VITALD_BACKUP_SSH_DIR` | for SFTP keys | none |
+| `VITALD_CONTAINER_ENGINE` | no | auto-detect Podman, then Docker |
+
 OAuth scopes currently requested:
 
 - `googlehealth.activity_and_fitness.readonly`
@@ -477,6 +499,19 @@ podman compose run --rm vitald doctor
 
 `--service-ports` is needed for `auth`, not routine fetch/sync/status commands.
 
+### Backup services
+
+The `backup` Compose profile contains separate read-only backup and writable fresh-restore services built from `Dockerfile.backup`. Host wrappers configure local/NAS or remote Restic repositories without adding backup tools to the application image:
+
+```bash
+./scripts/backup.sh
+./scripts/backup.sh --snapshots
+./scripts/restore.sh --snapshot latest --target-project vitald-restored
+./scripts/verify-backup.sh --snapshot latest
+```
+
+Backups acquire the synchronization advisory lock, create a custom-format PostgreSQL dump, and snapshot it with the raw archive, OAuth token, and manifest. The default retention is 7 daily, 4 weekly, and 12 monthly snapshots. Restore refuses the production project and non-empty targets. See `docs/BACKUP_RESTORE.md`.
+
 ## 13. Test and Validation State
 
 Automated checks used for the current implementation:
@@ -501,35 +536,35 @@ Test coverage includes:
 - sync status derivation
 - bounded UTF-8-safe run errors
 - doctor report aggregation, JSON output, token diagnostics, and non-destructive archive-path checks
-- PostgreSQL migration diagnostics, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
+- PostgreSQL migration diagnostics, downgrade protection, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
 
-The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The container image has been built and executed with rootless Podman. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment.
+The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The application and backup images have been built with rootless Podman. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment. Backup and fresh-project restore have been exercised end to end against a temporary local Restic repository, including database records, raw files, token restoration, forward migration startup, and doctor checks. Active-lock testing confirms backup exits without Compose stopping the running `vitald` container. Run the automated restore drill against the configured production repository before relying on it.
 
 ## 14. Known Limitations and Risks
 
-1. **No automated backups.** PostgreSQL, raw data, and the OAuth token currently rely on Podman named volumes.
+1. **Backups are not scheduled yet.** The encrypted backup and restore workflow is implemented, but it remains a manual operation until systemd automation is added and a repository-specific restore drill succeeds.
 2. **No scheduler.** Sync is still invoked manually.
-3. **No retention policy.** Raw pages are never compressed or deleted.
+3. **No raw-data retention policy.** Provider pages remain indefinitely in the live archive; Restic snapshot retention is separate and implemented.
 4. **Generic JSONB schema.** It is flexible and queryable, but analytics views are still needed before Grafana dashboards are stable and convenient.
 5. **List endpoints currently use `dataPoints.list`, not the reconciled stream.** With multiple overlapping sources, future work should evaluate whether normalization should use `dataPoints:reconcile` while retaining raw source pages.
-6. **Manual fetches are outside run history.** `sync_runs` tracks only `vitald sync`; `fetch` is represented through archives and imported records.
+6. **Manual fetches are outside run history and synchronization locking.** Avoid manual fetches during backup. `sync_runs` tracks only `vitald sync`; `fetch` is represented through archives and imported records.
 7. **Archive metadata is not linked to numeric sync-run IDs.** `raw_archives.run_id` is the archive directory timestamp identifier.
 8. **OAuth is single-user and file-backed.** This matches the current project scope but is not a multi-user secret-management design.
+9. **Restore is fresh-instance only.** Automated in-place restore is intentionally excluded to avoid accidental production-volume destruction; cutover is an explicit operator action.
 
 ## 15. Next Planned Work
 
-### Immediate next milestone: backup and restore
+### Immediate next milestone: unattended scheduling
 
-Define and implement a backup and tested restore workflow covering PostgreSQL, the raw archive, and the OAuth token. Establish retention, encryption, destination, consistency, and restore-verification requirements before choosing the final tooling.
+Add rootless Podman systemd service/timer units for synchronization, encrypted backup, and periodic restore verification. Define timing, randomized delay, failure notification, and interactions between jobs before installation.
 
 ### Planned order
 
-1. PostgreSQL/raw/token backup and restore workflow
-2. systemd service and timer
-3. stable daily/heart-rate/sleep/exercise/pipeline SQL views
-4. Grafana datasource and version-controlled dashboards
-5. controlled historical backfill
-6. evidence-based TimescaleDB evaluation
+1. systemd sync, backup, and verification services/timers
+2. stable daily/heart-rate/sleep/exercise/pipeline SQL views
+3. Grafana datasource and version-controlled dashboards
+4. controlled historical backfill
+5. evidence-based TimescaleDB evaluation
 
 ## 16. Future-Agent Handoff Checklist
 

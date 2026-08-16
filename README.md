@@ -6,6 +6,7 @@
 
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md): living architecture, implementation status, limitations, and agent handoff
 - [`docs/PROJECT.md`](docs/PROJECT.md): long-term goals and design direction
+- [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md): encrypted backup and disaster-recovery workflow
 
 ## Supported data
 
@@ -153,6 +154,24 @@ docker compose run --rm vitald sync --initial-days 30
 ```
 
 The Compose deployment uses persistent volumes for PostgreSQL, raw data, and OAuth configuration.
+
+## Backup and restore
+
+Encrypted Restic backups include a PostgreSQL dump, raw archives, the OAuth token, and a checksum manifest. Configure `VITALD_BACKUP_REPOSITORY` and `RESTIC_PASSWORD_FILE`, then run:
+
+```bash
+./scripts/backup.sh
+./scripts/backup.sh --snapshots
+./scripts/verify-backup.sh --snapshot latest
+```
+
+Restore into a fresh, isolated Compose project:
+
+```bash
+./scripts/restore.sh --snapshot latest --target-project vitald-restored
+```
+
+In-place restore is intentionally unsupported. See [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md) for local, mounted-NAS, SFTP, S3, restore, and cutover instructions.
 
 ## Storage model
 

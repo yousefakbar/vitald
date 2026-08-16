@@ -66,6 +66,15 @@ func TestSyncHistoryIntegration(t *testing.T) {
 	if running.Runs != 0 || running.Metrics != 0 {
 		t.Fatalf("unexpected running synchronization status: %+v", running)
 	}
+
+	const unknownMigration = "999_test_unknown.sql"
+	if _, err := store.pool.Exec(ctx, `INSERT INTO schema_migrations(version) VALUES($1)`, unknownMigration); err != nil {
+		t.Fatal(err)
+	}
+	defer store.pool.Exec(context.Background(), `DELETE FROM schema_migrations WHERE version=$1`, unknownMigration)
+	if err := store.Migrate(ctx); err == nil {
+		t.Fatal("expected migration to reject a database newer than the binary")
+	}
 }
 
 func TestSyncLeaseAndStaleRecoveryIntegration(t *testing.T) {
