@@ -29,6 +29,40 @@ func TestNormalizeSleepMakesUnavailableScoreExplicit(t *testing.T) {
 	}
 }
 
+func TestNormalizeTimestampSamplesAssignsConfiguredLocalDate(t *testing.T) {
+	location, _ := time.LoadLocation("Asia/Riyadh")
+	tests := []struct {
+		metric string
+		point  *health.DataPoint
+	}{
+		{
+			metric: "heart-rate",
+			point: &health.DataPoint{HeartRate: &health.HeartRate{
+				SampleTime:     &health.ObservationSampleTime{PhysicalTime: "2026-08-01T22:30:00Z"},
+				BeatsPerMinute: 62,
+			}},
+		},
+		{
+			metric: "weight",
+			point: &health.DataPoint{Weight: &health.Weight{
+				SampleTime:  &health.ObservationSampleTime{PhysicalTime: "2026-08-01T22:30:00Z"},
+				WeightGrams: 70000,
+			}},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.metric, func(t *testing.T) {
+			records, err := normalizePoints(test.metric, []*health.DataPoint{test.point}, location)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(records) != 1 || records[0].LocalDate == nil || records[0].LocalDate.Format(time.DateOnly) != "2026-08-02" {
+				t.Fatalf("unexpected records: %+v", records)
+			}
+		})
+	}
+}
+
 func TestNormalizeExercise(t *testing.T) {
 	location, _ := time.LoadLocation("Asia/Riyadh")
 	points := []*health.DataPoint{{Exercise: &health.Exercise{

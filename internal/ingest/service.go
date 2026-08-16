@@ -179,6 +179,7 @@ func normalizePoints(metric string, points []*health.DataPoint, location *time.L
 				continue
 			}
 			record.ObservedAt, err = parseTimePtr(point.HeartRate.SampleTime.PhysicalTime)
+			record.LocalDate = localDate(record.ObservedAt, location)
 			value := float64(point.HeartRate.BeatsPerMinute)
 			record.Value, record.Unit = &value, "bpm"
 			record.Attributes = point.HeartRate.Metadata
@@ -241,6 +242,7 @@ func normalizePoints(metric string, points []*health.DataPoint, location *time.L
 				continue
 			}
 			record.ObservedAt, err = parseTimePtr(point.Weight.SampleTime.PhysicalTime)
+			record.LocalDate = localDate(record.ObservedAt, location)
 			value := point.Weight.WeightGrams / 1000
 			record.Value, record.Unit = &value, "kg"
 			record.Attributes = map[string]any{"notes": point.Weight.Notes, "weightGrams": point.Weight.WeightGrams}

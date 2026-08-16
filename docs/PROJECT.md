@@ -411,7 +411,9 @@ The initial CLI ingestion milestone is complete: OAuth, real metric fetching, ex
 
 The **safe unattended synchronization** milestone is implemented: PostgreSQL advisory locking prevents concurrent syncs, the next lock holder recovers stale `running` history left by a hard-killed process, `vitald doctor` reports operational readiness, encrypted Restic snapshots have a tested fresh-instance restore path, and rootless systemd timers schedule sync, diagnostics, backups, and restore verification.
 
-The next milestone is stable analytics SQL views, followed by Grafana provisioning and dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
+The **stable analytics SQL views** milestone is implemented: versioned views in the `analytics` PostgreSQL schema provide daily summaries, heart-rate trends, typed sleep and exercise sessions, and pipeline freshness without exposing provider JSON contracts to dashboards.
+
+The next milestone is Grafana datasource provisioning and version-controlled dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
 
 ## Open Decisions
 

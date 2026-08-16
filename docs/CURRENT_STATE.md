@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the living handoff document for the project. It describes what the repository actually implements today, the decisions behind it, known gaps, and the next planned work. Update it whenever behavior, architecture, schema, deployment, or priorities change.
 >
-> **Last updated:** 2026-08-16 after implementing rootless systemd scheduling on top of commit `98d50e8`.
+> **Last updated:** 2026-08-16 after implementing stable analytics SQL views on top of commit `b1f12f1`.
 
 ## 1. Project State at a Glance
 
@@ -35,10 +35,10 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 - [x] Text or JSON structured logging through `log/slog`
 - [x] Multi-stage container image and Podman/Docker Compose deployment
 - [x] Unit, race, HTTP fixture, filesystem, and PostgreSQL integration tests
+- [x] Stable analytics SQL views for daily summaries, heart rate, sleep, exercise, and pipeline freshness
 
 ### Not implemented yet
 
-- [ ] Stable analytics SQL views
 - [ ] Grafana provisioning and dashboards
 - [ ] Historical backfill workflow beyond manual `fetch`
 - [ ] Raw archive retention, compression, or pruning
@@ -185,6 +185,7 @@ internal/storage/postgres/
 internal/storage/postgres/migrations/
     001_initial.sql
     002_sync_history.sql
+    003_analytics_views.sql
 
 compose.yaml
     PostgreSQL and one-shot vitald container services with named volumes.
@@ -399,6 +400,20 @@ View aggregating overall metric counts, pages, records, status, version, and err
 
 Existing pre-migration health records are not assigned to synthetic runs. History starts with the first sync after migration `002_sync_history.sql`.
 
+### `analytics` schema
+
+Migration `003_analytics_views.sql` provides the stable SQL contract for analytics consumers:
+
+- `analytics.daily_summary`: a continuous local-date series containing daily metrics, daily heart-rate statistics, totals across all sleep and exercise sessions, and the latest weight sample for each date
+- `analytics.heart_rate_daily`: daily minimum, average, maximum, sample count, and first/last sample timestamps
+- `analytics.sleep_sessions`: typed session rows attributed by local end date
+- `analytics.exercise_sessions`: typed session rows attributed by local start date
+- `analytics.pipeline_freshness`: one row per supported metric with checkpoints, record/import state, archives, and latest synchronization state
+
+Missing measurements remain `NULL`; session counts are zero when a generated date has no sessions. Views are ordinary, not materialized, because current data volume does not justify refresh management. Dashboards should use this schema rather than depend directly on metric-specific JSONB structures.
+
+Heart-rate and weight records now receive `local_date` during normalization using the configured timezone. Migration `003` backfills existing timestamp samples with `Asia/Riyadh`, matching the current deployment.
+
 ## 10. Synchronization Lifecycle
 
 ```text
@@ -544,12 +559,13 @@ Test coverage includes:
 - OAuth token round-trip and file permissions
 - atomic archive behavior and overwrite rejection
 - sleep and exercise normalization
+- configured local-date assignment for heart-rate and weight samples
 - stable daily record keys
 - sync status derivation
 - bounded UTF-8-safe run errors
 - doctor report aggregation, JSON output, token diagnostics, and non-destructive archive-path checks
 - systemd template rendering, unit verification, calendar parsing, clean failure-hook environment, and rootless execution wrappers
-- PostgreSQL migration diagnostics, downgrade protection, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
+- PostgreSQL migration diagnostics, downgrade protection, analytics view contracts and aggregation, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
 
 The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The application and backup images have been built with rootless Podman. Systemd units are rendered and checked with `systemd-analyze verify`, and every calendar expression is validated with `systemd-analyze calendar`. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment. Backup and fresh-project restore have been exercised end to end against a temporary local Restic repository, including database records, raw files, token restoration, forward migration startup, and doctor checks. Active-lock testing confirms backup exits without Compose stopping the running `vitald` container. Run the automated restore drill against the configured production repository before relying on it.
 
@@ -558,7 +574,7 @@ The PostgreSQL integration test has been run against a real PostgreSQL 17 contai
 1. **Scheduler installation is host-local.** The version-controlled units are implemented but must be installed explicitly, user lingering must be enabled, and the configured production repository needs a successful restore drill.
 2. **Failure delivery is optional.** Failed jobs are visible in journald and systemd; email, Telegram, or another external destination requires `VITALD_FAILURE_HOOK`.
 3. **No raw-data retention policy.** Provider pages remain indefinitely in the live archive; Restic snapshot retention is separate and implemented.
-4. **Generic JSONB schema.** It is flexible and queryable, but analytics views are still needed before Grafana dashboards are stable and convenient.
+4. **Analytics contracts cover the current metric set.** The underlying generic JSONB schema remains flexible, while dashboards should use the typed `analytics` views. New metrics or newly exposed provider fields will require deliberate view-contract extensions.
 5. **List endpoints currently use `dataPoints.list`, not the reconciled stream.** With multiple overlapping sources, future work should evaluate whether normalization should use `dataPoints:reconcile` while retaining raw source pages.
 6. **Manual fetches are outside run history and synchronization locking.** Avoid manual fetches during backup. `sync_runs` tracks only `vitald sync`; `fetch` is represented through archives and imported records.
 7. **Archive metadata is not linked to numeric sync-run IDs.** `raw_archives.run_id` is the archive directory timestamp identifier.
@@ -567,16 +583,15 @@ The PostgreSQL integration test has been run against a real PostgreSQL 17 contai
 
 ## 15. Next Planned Work
 
-### Immediate next milestone: stable analytics views
+### Immediate next milestone: Grafana provisioning and dashboards
 
-Define query contracts and add versioned SQL views for daily summaries, heart-rate trends, sleep, exercise, and pipeline freshness before coupling Grafana dashboards directly to the generic JSONB schema.
+Provision Grafana and its PostgreSQL datasource in version control, then build dashboards against the stable `analytics` schema for daily health trends, heart rate, sleep, exercise, and ingestion freshness.
 
 ### Planned order
 
-1. stable daily/heart-rate/sleep/exercise/pipeline SQL views
-2. Grafana datasource and version-controlled dashboards
-3. controlled historical backfill
-4. evidence-based TimescaleDB evaluation
+1. Grafana datasource and version-controlled dashboards
+2. controlled historical backfill
+3. evidence-based TimescaleDB evaluation
 
 ## 16. Future-Agent Handoff Checklist
 

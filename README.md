@@ -184,6 +184,22 @@ Synchronization history is stored in `sync_runs` and `sync_run_metrics`; the `sy
 
 Plain PostgreSQL is intentional at the current personal-data scale. TimescaleDB may be useful later for heart-rate hypertables, compression, and continuous aggregates, but adding it now would create deployment complexity without a demonstrated need.
 
+## Analytics views
+
+The `analytics` PostgreSQL schema is the stable query contract for dashboards and ad hoc analysis:
+
+| View | Granularity |
+|---|---|
+| `analytics.daily_summary` | continuous local-date series with daily metrics, heart-rate statistics, all sleep and exercise sessions, and the latest daily weight |
+| `analytics.heart_rate_daily` | daily minimum, average, maximum, sample count, and sample bounds |
+| `analytics.sleep_sessions` | one typed row per sleep session, attributed to its local end date |
+| `analytics.exercise_sessions` | one typed row per exercise session, attributed to its local start date |
+| `analytics.pipeline_freshness` | one row per supported metric with checkpoint, import, archive, and synchronization state |
+
+Missing measurements are `NULL`, not zero. Daily sleep and exercise values aggregate every session attributed to that date. Timestamp samples receive `local_date` during ingestion using `VITALD_TIMEZONE`; migration of existing heart-rate and weight records uses the deployment timezone `Asia/Riyadh`.
+
+Dashboards should query these views instead of depending on `health_records.attributes` or provider JSON structures directly.
+
 ## Repository structure
 
 ```text
