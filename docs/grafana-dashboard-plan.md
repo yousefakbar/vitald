@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 6 is next
+> **Status:** In progress — point 7 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -91,11 +91,11 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 6. Build exercise and pipeline-health dashboards
 
-- [ ] Add exercise frequency, duration, calories, active-zone minutes, types, and session history.
-- [ ] Add one pipeline-health row/status per supported metric.
-- [ ] Add latest success, checkpoint, import, archive, record-count, and failure context.
-- [ ] Apply the agreed warning/critical freshness display thresholds.
-- [ ] Ensure error details are useful without exposing secrets or raw health payloads.
+- [x] Add exercise frequency, duration, calories, active-zone minutes, types, and session history.
+- [x] Add one pipeline-health row/status per supported metric.
+- [x] Add latest success, checkpoint, import, archive, record-count, and failure context.
+- [x] Apply the agreed warning/critical freshness display thresholds.
+- [x] Ensure error details are useful without exposing secrets or raw health payloads.
 
 ### 7. Integrate Grafana with rootless user-systemd
 
@@ -184,3 +184,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-17: Point 3 completed; provisioned the read-only PostgreSQL datasource and file dashboard provider, verified analytics queries and recreation, and disabled deferred plugin administration/preinstallation.
 - 2026-08-17: Point 4 completed; added and visually validated the declarative health overview dashboard with seven daily trend panels, explicit local-time semantics, stable datasource references, and missing-data gaps.
 - 2026-08-17: Point 5 completed; added and visually validated declarative heart-rate and sleep dashboards with sample coverage, resting heart rate, HRV, rolling sleep trends, and session detail.
+- 2026-08-17: Point 6 completed; added and visually validated declarative exercise and pipeline-health dashboards with session analysis, operational freshness thresholds, per-metric status, and record volumes.
