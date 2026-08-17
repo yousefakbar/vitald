@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 4 is next
+> **Status:** In progress — point 5 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -74,12 +74,12 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 4. Build the health overview dashboard
 
-- [ ] Add a version-controlled dashboard JSON file with a stable UID.
-- [ ] Add global time-range behavior and appropriate intervals.
-- [ ] Add steps, resting heart rate, HRV, sleep, exercise, calories, and weight panels.
-- [ ] Preserve `NULL` as missing data rather than rendering it as zero where that would mislead.
-- [ ] Use only `analytics.daily_summary` and the provisioned datasource UID.
-- [ ] Validate short and long time ranges against real data.
+- [x] Add a version-controlled dashboard JSON file with stable UID `vitald-health-overview`.
+- [x] Add global time-range behavior and appropriate intervals.
+- [x] Add steps, resting heart rate, HRV, sleep, exercise, calories, and weight panels.
+- [x] Preserve `NULL` as missing data rather than rendering it as zero where that would mislead.
+- [x] Use only `analytics.daily_summary` and the provisioned datasource UID.
+- [x] Validate short and long time ranges against real data.
 
 ### 5. Build heart-rate and sleep dashboards
 
@@ -182,3 +182,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-16: Point 1 completed; added idempotent Grafana database-role provisioning and verified analytics-only read access, denied base-table/write/create access, defensive role settings, and repeated execution.
 - 2026-08-17: Point 2 completed; added pinned Grafana 13.1.0 Compose service, loopback port `3107`, persistent state, local authentication, explicit timezone/security defaults, and a passing container health check.
 - 2026-08-17: Point 3 completed; provisioned the read-only PostgreSQL datasource and file dashboard provider, verified analytics queries and recreation, and disabled deferred plugin administration/preinstallation.
+- 2026-08-17: Point 4 completed; added and visually validated the declarative health overview dashboard with seven daily trend panels, explicit local-time semantics, stable datasource references, and missing-data gaps.
