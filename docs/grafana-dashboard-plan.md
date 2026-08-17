@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 5 is next
+> **Status:** In progress — point 6 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -83,11 +83,11 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 5. Build heart-rate and sleep dashboards
 
-- [ ] Add daily heart-rate minimum/average/maximum and sample-count trends.
-- [ ] Add resting-heart-rate and HRV context.
-- [ ] Add daily sleep totals, session count, longest session, and rolling trends.
-- [ ] Add a sleep-session detail table.
-- [ ] Verify date attribution, units, legends, tooltips, and missing-data behavior.
+- [x] Add daily heart-rate minimum/average/maximum and sample-count trends.
+- [x] Add resting-heart-rate and HRV context.
+- [x] Add daily sleep totals, session count, longest session, and rolling trends.
+- [x] Add a sleep-session detail table.
+- [x] Verify date attribution, units, legends, tooltips, and missing-data behavior.
 
 ### 6. Build exercise and pipeline-health dashboards
 
@@ -183,3 +183,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-17: Point 2 completed; added pinned Grafana 13.1.0 Compose service, loopback port `3107`, persistent state, local authentication, explicit timezone/security defaults, and a passing container health check.
 - 2026-08-17: Point 3 completed; provisioned the read-only PostgreSQL datasource and file dashboard provider, verified analytics queries and recreation, and disabled deferred plugin administration/preinstallation.
 - 2026-08-17: Point 4 completed; added and visually validated the declarative health overview dashboard with seven daily trend panels, explicit local-time semantics, stable datasource references, and missing-data gaps.
+- 2026-08-17: Point 5 completed; added and visually validated declarative heart-rate and sleep dashboards with sample coverage, resting heart rate, HRV, rolling sleep trends, and session detail.
