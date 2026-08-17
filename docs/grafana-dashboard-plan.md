@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 1 is next
+> **Status:** In progress — point 3 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -55,13 +55,13 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 2. Add the baseline Grafana Compose service
 
-- [ ] Add a pinned Grafana OSS image to `compose.yaml`.
-- [ ] Add a persistent `grafana-data` named volume.
-- [ ] Configure the selected loopback/LAN/reverse-proxy exposure.
-- [ ] Configure administrator secrets and disable anonymous access.
-- [ ] Set timezone and safe container defaults.
-- [ ] Add a health check and PostgreSQL startup dependency.
-- [ ] Verify startup, login, restart persistence, health, and logs manually.
+- [x] Add a pinned Grafana OSS image to `compose.yaml`.
+- [x] Add a persistent `grafana-data` named volume.
+- [x] Configure loopback-only exposure on host port `3107`.
+- [x] Configure administrator secrets and disable anonymous access.
+- [x] Set timezone and safe container defaults.
+- [x] Add a health check and PostgreSQL startup dependency.
+- [x] Verify startup, remote login through SSH tunneling, container recreation persistence, health, and logs manually.
 
 ### 3. Provision the PostgreSQL datasource and dashboard provider
 
@@ -180,3 +180,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-16: Initial plan created.
 - 2026-08-16: Architecture accepted with loopback port `3107` and daily min/average/max heart-rate trends; point 0 completed.
 - 2026-08-16: Point 1 completed; added idempotent Grafana database-role provisioning and verified analytics-only read access, denied base-table/write/create access, defensive role settings, and repeated execution.
+- 2026-08-17: Point 2 completed; added pinned Grafana 13.1.0 Compose service, loopback port `3107`, persistent state, local authentication, explicit timezone/security defaults, and a passing container health check.

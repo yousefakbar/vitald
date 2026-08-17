@@ -38,6 +38,40 @@ services:
       - vitald-config:/config
       - vitald-data:/data
 
+  grafana:
+    image: grafana/grafana:13.1.0
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+      GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY:?set GRAFANA_SECRET_KEY in .env}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_USERS_ALLOW_ORG_CREATE: "false"
+      GF_SECURITY_DISABLE_GRAVATAR: "true"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_DATE_FORMATS_DEFAULT_TIMEZONE: Asia/Riyadh
+      GF_SERVER_ROOT_URL: http://127.0.0.1:3107
+      GF_LOG_MODE: console
+      GF_LOG_LEVEL: info
+      TZ: Asia/Riyadh
+    ports:
+      - "127.0.0.1:3107:3000"
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - wget -q -O /dev/null http://127.0.0.1:3000/api/health
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    volumes:
+      - grafana-data:/var/lib/grafana
+
   backup:
     profiles: ["backup"]
     build:
@@ -80,3 +114,4 @@ volumes:
   postgres-data:
   vitald-config:
   vitald-data:
+  grafana-data:
