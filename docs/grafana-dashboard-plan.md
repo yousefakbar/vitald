@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 3 is next
+> **Status:** In progress — point 4 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -65,12 +65,12 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 3. Provision the PostgreSQL datasource and dashboard provider
 
-- [ ] Add `deploy/grafana/provisioning/datasources/` configuration with a stable datasource UID.
-- [ ] Add `deploy/grafana/provisioning/dashboards/` provider configuration.
-- [ ] Mount provisioning and dashboard directories read-only in Compose.
-- [ ] Pass the read-only datasource password without committing it.
-- [ ] Verify Grafana reports the datasource healthy.
-- [ ] Verify provisioned resources reappear after deleting and recreating the Grafana container.
+- [x] Add `deploy/grafana/provisioning/datasources/` configuration with stable UID `vitald-postgres`.
+- [x] Add `deploy/grafana/provisioning/dashboards/` provider configuration.
+- [x] Mount provisioning and dashboard directories read-only in Compose.
+- [x] Pass the read-only datasource password without committing it.
+- [x] Verify Grafana reports the datasource healthy and can query the analytics views.
+- [x] Verify provisioned resources reappear after deleting and recreating the Grafana container.
 
 ### 4. Build the health overview dashboard
 
@@ -181,3 +181,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-16: Architecture accepted with loopback port `3107` and daily min/average/max heart-rate trends; point 0 completed.
 - 2026-08-16: Point 1 completed; added idempotent Grafana database-role provisioning and verified analytics-only read access, denied base-table/write/create access, defensive role settings, and repeated execution.
 - 2026-08-17: Point 2 completed; added pinned Grafana 13.1.0 Compose service, loopback port `3107`, persistent state, local authentication, explicit timezone/security defaults, and a passing container health check.
+- 2026-08-17: Point 3 completed; provisioned the read-only PostgreSQL datasource and file dashboard provider, verified analytics queries and recreation, and disabled deferred plugin administration/preinstallation.

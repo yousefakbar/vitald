@@ -45,6 +45,11 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      VITALD_GRAFANA_DB_NAME: ${POSTGRES_DB:-vitald}
+      VITALD_GRAFANA_DB_USER: ${VITALD_GRAFANA_DB_USER:-vitald_grafana}
+      VITALD_GRAFANA_DB_PASSWORD: ${VITALD_GRAFANA_DB_PASSWORD:?set VITALD_GRAFANA_DB_PASSWORD in .env}
+      GF_PLUGINS_PLUGIN_ADMIN_ENABLED: "false"
+      GF_PLUGINS_PREINSTALL_DISABLED: "true"
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
       GF_SECURITY_SECRET_KEY: ${GRAFANA_SECRET_KEY:?set GRAFANA_SECRET_KEY in .env}
@@ -71,6 +76,9 @@ services:
       start_period: 20s
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro,Z
+      - ./deploy/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro,Z
+      - ./deploy/grafana/dashboards:/etc/grafana/dashboards:ro,Z
 
   backup:
     profiles: ["backup"]
