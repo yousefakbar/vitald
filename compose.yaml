@@ -67,12 +67,12 @@ services:
       GF_ANALYTICS_REPORTING_ENABLED: "false"
       GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
       GF_DATE_FORMATS_DEFAULT_TIMEZONE: Asia/Riyadh
-      GF_SERVER_ROOT_URL: http://127.0.0.1:3107
+      GF_SERVER_ROOT_URL: ${GRAFANA_ROOT_URL:-http://127.0.0.1:3107}
       GF_LOG_MODE: console
       GF_LOG_LEVEL: info
       TZ: Asia/Riyadh
     ports:
-      - "127.0.0.1:3107:3000"
+      - "3107:3000"
     healthcheck:
       test:
         - CMD-SHELL
