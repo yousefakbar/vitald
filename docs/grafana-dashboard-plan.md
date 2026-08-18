@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 8 is next
+> **Status:** Complete — milestone closed
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -108,24 +108,24 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 8. Add automated and operational validation
 
-- [ ] Add targeted tests for database-role provisioning and denied base-table/write access.
-- [ ] Validate Compose rendering for Podman and Docker-compatible configuration.
-- [ ] Validate provisioning YAML and dashboard JSON.
-- [ ] Check that committed dashboards reference the stable datasource UID and only `analytics` objects.
-- [ ] Add or extend systemd rendering/start-stop tests.
-- [ ] Run a container smoke test covering Grafana health and datasource connectivity.
-- [ ] Run the full Go tests, race tests, vet, build, shell checks, and relevant integration tests.
-- [ ] Perform a clean recreate/reprovision drill.
+- [x] Add targeted tests for database-role provisioning and denied base-table/write access.
+- [x] Validate Compose rendering for Podman and Docker-compatible configuration.
+- [x] Validate provisioning YAML and dashboard JSON.
+- [x] Check that committed dashboards reference the stable datasource UID and only `analytics` objects.
+- [x] Add or extend systemd rendering/start-stop tests.
+- [x] Run a container smoke test covering Grafana health and datasource connectivity.
+- [x] Run the full Go tests, race tests, vet, build, shell checks, and relevant integration tests.
+- [x] Perform a clean recreate/reprovision drill.
 
 ### 9. Documentation and milestone closeout
 
-- [ ] Add a Grafana operations document covering setup, access, login, updates, logs, password rotation, dashboard editing/export, and recovery.
-- [ ] Update `.env.example`, `README.md`, `docs/SCHEDULING.md`, and `docs/CURRENT_STATE.md`.
-- [ ] Document security boundaries and the decision not to back up disposable Grafana SQLite state, if retained.
-- [ ] Document SSH tunneling or the selected reverse-proxy/LAN access method.
-- [ ] Record known limitations and future alerting/intraday work.
-- [ ] Run final validation and manually inspect all dashboards.
-- [ ] Mark the milestone complete and identify the next planned milestone.
+- [x] Add a Grafana operations document covering setup, access, login, updates, logs, password rotation, dashboard editing/export, and recovery.
+- [x] Update `.env.example`, `README.md`, `docs/SCHEDULING.md`, and `docs/CURRENT_STATE.md`.
+- [x] Document security boundaries and the decision not to back up disposable Grafana SQLite state, if retained.
+- [x] Document SSH tunneling or the selected reverse-proxy/LAN access method.
+- [x] Record known limitations and future alerting/intraday work.
+- [x] Run final validation and manually inspect all dashboards.
+- [x] Mark the milestone complete and identify the next planned milestone.
 
 ## Ordering constraints
 
@@ -186,3 +186,5 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-17: Point 5 completed; added and visually validated declarative heart-rate and sleep dashboards with sample coverage, resting heart rate, HRV, rolling sleep trends, and session detail.
 - 2026-08-17: Point 6 completed; added and visually validated declarative exercise and pipeline-health dashboards with session analysis, operational freshness thresholds, per-metric status, and record volumes.
 - 2026-08-17: Point 7 completed; added an independently managed rootless Grafana unit, installer/uninstaller integration, database-role provisioning, readiness checks, and provider-safe PostgreSQL startup detection.
+- 2026-08-18: Point 8 completed; added static provisioning/dashboard/Compose/systemd contracts, mocked runtime-wrapper checks, disposable role permission tests, Grafana and datasource smoke tests, and a passing clean reprovision drill.
+- 2026-08-18: Point 9 completed; added the Grafana operations and recovery guide, updated project-facing documentation, recorded deferred scope and security boundaries, and closed the milestone. Controlled historical backfill is next.

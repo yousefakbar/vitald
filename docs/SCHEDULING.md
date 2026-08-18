@@ -7,6 +7,7 @@
 | Unit | Purpose |
 |---|---|
 | `vitald-postgres.service` | Starts and owns the persistent Compose PostgreSQL container |
+| `vitald-grafana.service` | Provisions database access and owns the persistent Compose Grafana container |
 | `vitald-sync.service` / `.timer` | Synchronizes all metrics every six hours |
 | `vitald-doctor.service` / `.timer` | Runs daily offline operational checks |
 | `vitald-backup.service` / `.timer` | Creates a daily encrypted Restic backup |
@@ -30,7 +31,7 @@ Each timer has a stable randomized delay of up to ten minutes, one-minute accura
 
 Scheduled Compose runs use `--no-deps`, so they cannot reconcile or stop another one-shot container. The Compose file also disables podman-compose's shared-pod mode. Without that setting, a configuration-hash change (including a changed interpolated environment value) can make a one-off `run` replace the shared pod and stop unrelated long-lived containers such as PostgreSQL and Grafana. Services instead run as separate containers on the same Compose network, matching Docker Compose's lifecycle isolation.
 
-The backup unit is ordered after a systemd-managed sync, and verification is ordered after backup. PostgreSQL advisory locking remains the final exclusion mechanism for manual or otherwise external overlap. If a manual sync is still active when backup starts, backup fails rather than stopping sync.
+Grafana requires and starts after PostgreSQL, but it can be restarted independently and does not own one-shot vitald jobs. The backup unit is ordered after a systemd-managed sync, and verification is ordered after backup. PostgreSQL advisory locking remains the final exclusion mechanism for manual or otherwise external overlap. If a manual sync is still active when backup starts, backup fails rather than stopping sync.
 
 ## Prerequisites
 
@@ -67,13 +68,14 @@ The dry run uses `systemd-analyze verify` and prints the exact generated units. 
 The installer:
 
 1. Loads the configured environment file.
-2. Builds the `vitald`, `backup`, and `restore` images once.
+2. Pulls the pinned Grafana image and builds the `vitald`, `backup`, and `restore` images once.
 3. Renders `.in` templates with absolute paths.
 4. Verifies all generated units.
 5. Installs them under the user systemd configuration directory.
 6. Reloads the user manager.
 7. Enables and starts PostgreSQL.
-8. Requires one successful offline doctor check before enabling all timers.
+8. Provisions the read-only Grafana database role, then enables and starts Grafana.
+9. Requires one successful offline doctor check before enabling all timers.
 
 Scheduled jobs pass `--no-build`; they use the images built during installation and never compile unattended working-tree changes.
 
@@ -131,6 +133,7 @@ Inspect unit state:
 
 ```bash
 systemctl --user status vitald-postgres.service
+systemctl --user status vitald-grafana.service
 systemctl --user status vitald-sync.timer
 systemctl --user --failed
 ```
@@ -147,6 +150,7 @@ systemctl --user start vitald-verify-backup.service
 Follow logs:
 
 ```bash
+journalctl --user -u vitald-grafana.service -f
 journalctl --user -u vitald-sync.service -f
 journalctl --user -u vitald-backup.service --since today
 journalctl --user -u vitald-verify-backup.service --since '7 days ago'
@@ -236,7 +240,7 @@ For unit-only changes:
 ./scripts/uninstall-systemd.sh
 ```
 
-This disables timers and removes generated user units. It deliberately leaves PostgreSQL running and never removes containers, images, volumes, raw data, OAuth tokens, or Restic repositories.
+This disables timers, stops Grafana, and removes generated user units. It deliberately leaves PostgreSQL running and never removes images, volumes, raw data, OAuth tokens, dashboards, or Restic repositories. In particular, the `grafana-data` volume is retained.
 
 Stop PostgreSQL as part of uninstall only when explicitly intended:
 
@@ -266,6 +270,15 @@ journalctl --user -u vitald-postgres.service -n 100 --no-pager
 ```
 
 The startup wrapper waits up to 60 seconds for PostgreSQL readiness.
+
+### Grafana is unavailable
+
+```bash
+systemctl --user restart vitald-grafana.service
+journalctl --user -u vitald-grafana.service -n 100 --no-pager
+```
+
+The startup wrapper ensures PostgreSQL is ready, reprovisions the read-only database role, starts only Grafana with `--no-deps`, and waits up to 60 seconds for health. See [`GRAFANA.md`](GRAFANA.md) for datasource, login, dashboard, and recovery troubleshooting.
 
 ### Backup collided with sync
 

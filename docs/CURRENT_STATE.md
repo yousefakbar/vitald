@@ -2,7 +2,7 @@
 
 > **Purpose:** This is the living handoff document for the project. It describes what the repository actually implements today, the decisions behind it, known gaps, and the next planned work. Update it whenever behavior, architecture, schema, deployment, or priorities change.
 >
-> **Last updated:** 2026-08-16 after implementing stable analytics SQL views on top of commit `b1f12f1`.
+> **Last updated:** 2026-08-18 after completing the Grafana provisioning and dashboards milestone.
 
 ## 1. Project State at a Glance
 
@@ -36,10 +36,13 @@ The current deployment target is rootless Podman Compose on a homelab. The confi
 - [x] Multi-stage container image and Podman/Docker Compose deployment
 - [x] Unit, race, HTTP fixture, filesystem, and PostgreSQL integration tests
 - [x] Stable analytics SQL views for daily summaries, heart rate, sleep, exercise, and pipeline freshness
+- [x] Pinned, loopback-only Grafana with persistent disposable runtime state
+- [x] Least-privilege analytics-only Grafana PostgreSQL login
+- [x] Version-controlled datasource, dashboard provider, and five dashboards
+- [x] Independent rootless systemd ownership and automated Grafana contract/integration validation
 
 ### Not implemented yet
 
-- [ ] Grafana provisioning and dashboards
 - [ ] Historical backfill workflow beyond manual `fetch`
 - [ ] Raw archive retention, compression, or pruning
 - [ ] TimescaleDB (intentionally deferred)
@@ -188,7 +191,7 @@ internal/storage/postgres/migrations/
     003_analytics_views.sql
 
 compose.yaml
-    PostgreSQL and one-shot vitald container services with named volumes.
+    PostgreSQL, one-shot vitald, Grafana, backup, and restore services with named volumes.
 
 Dockerfile
     Multi-stage Go build; embeds version, commit, and build date.
@@ -200,11 +203,17 @@ scripts/
     Host backup, restore, verification, systemd installation, failure handling,
     and container-side orchestration scripts.
 
+deploy/grafana/
+    Provisioned PostgreSQL datasource, dashboard provider, and dashboard JSON.
+
 deploy/systemd/user/
     Version-controlled rootless service templates and timer units.
 
 docs/BACKUP_RESTORE.md
     Repository configuration, backup, fresh restore, verification, and cutover procedures.
+
+docs/GRAFANA.md
+    Grafana setup, access, security, editing, updates, troubleshooting, and recovery.
 
 docs/SCHEDULING.md
     Systemd installation, schedules, operation, customization, and troubleshooting.
@@ -458,6 +467,11 @@ Environment variables:
 | `VITALD_RAW_DATA_PATH` | no | `data/raw` |
 | `VITALD_LOG_FORMAT` | no | `text` |
 | `VITALD_HTTP_TIMEOUT` | no | `60s` |
+| `GRAFANA_ADMIN_USER` | no | `admin` |
+| `GRAFANA_ADMIN_PASSWORD` | for Grafana | none |
+| `GRAFANA_SECRET_KEY` | for Grafana | none |
+| `VITALD_GRAFANA_DB_USER` | no | `vitald_grafana` |
+| `VITALD_GRAFANA_DB_PASSWORD` | for Grafana | none |
 
 Backup-only environment variables:
 
@@ -493,7 +507,7 @@ Google OAuth projects in testing mode generally issue refresh tokens that expire
 - Image: `postgres:17-alpine`
 - Health check through `pg_isready`
 - Named volume: `postgres-data`
-- Not exposed to the host network by default
+- Published only on host loopback at `127.0.0.1:5432`
 
 ### `vitald`
 
@@ -522,6 +536,19 @@ podman compose run --rm --no-deps vitald doctor
 
 `--service-ports` is needed for `auth`, not routine fetch/sync/status commands.
 
+### `grafana`
+
+- Pinned image: `grafana/grafana:13.1.0`
+- Published only on host loopback at `127.0.0.1:3107`
+- Persistent convenience state in `grafana-data`; Git provisioning is authoritative
+- Local administrator authentication with anonymous access disabled
+- Read-only provisioned datasource UID `vitald-postgres`
+- Read-only mounts for provisioning and five committed dashboards
+- Explicit `Asia/Riyadh` dashboard/runtime timezone
+- Independently owned by `vitald-grafana.service`, ordered after PostgreSQL
+
+The dedicated datasource role can select every `analytics` view but cannot query base tables, write, create objects, or escalate privileges. See `docs/GRAFANA.md`.
+
 ### Backup services
 
 The `backup` Compose profile contains separate read-only backup and writable fresh-restore services built from `Dockerfile.backup`. Host wrappers configure local/NAS or remote Restic repositories without adding backup tools to the application image:
@@ -537,7 +564,7 @@ Backups acquire the synchronization advisory lock, create a custom-format Postgr
 
 ### Rootless systemd scheduling
 
-`deploy/systemd/user` contains rendered-at-install service templates and fixed timer units. `scripts/install-systemd.sh` validates units, builds images once, installs them under the user manager, starts PostgreSQL, and enables timers. Scheduled jobs run prebuilt images through `--no-deps`; they never rebuild unattended or reconcile another Compose process. Calendars explicitly use `Asia/Riyadh`, persistent timers catch downtime, and an optional executable failure hook can forward alerts. See `docs/SCHEDULING.md`.
+`deploy/systemd/user` contains rendered-at-install service templates and fixed timer units. `scripts/install-systemd.sh` validates units, builds images once, installs them under the user manager, starts PostgreSQL and Grafana, and enables timers. Scheduled jobs run prebuilt images through `--no-deps`; they never rebuild unattended or reconcile another Compose process. Calendars explicitly use `Asia/Riyadh`, persistent timers catch downtime, and an optional executable failure hook can forward alerts. See `docs/SCHEDULING.md`.
 
 ## 13. Test and Validation State
 
@@ -548,6 +575,8 @@ go test ./...
 go test -race ./...
 go vet ./...
 go build ./cmd/vitald
+./scripts/validate-grafana.sh
+./scripts/validate-grafana.sh --integration
 ```
 
 Test coverage includes:
@@ -565,6 +594,8 @@ Test coverage includes:
 - bounded UTF-8-safe run errors
 - doctor report aggregation, JSON output, token diagnostics, and non-destructive archive-path checks
 - systemd template rendering, unit verification, calendar parsing, clean failure-hook environment, and rootless execution wrappers
+- Grafana provisioning YAML and dashboard JSON/UID/timezone/datasource/SQL contracts
+- disposable Grafana role permission denials, idempotent provisioning, health, datasource connectivity, and clean reprovisioning
 - PostgreSQL migration diagnostics, downgrade protection, analytics view contracts and aggregation, synchronization-history CRUD, advisory-lock exclusion, and simulated connection-loss recovery when `VITALD_TEST_DATABASE_URL` is set
 
 The PostgreSQL integration test has been run against a real PostgreSQL 17 container. The application and backup images have been built with rootless Podman. Systemd units are rendered and checked with `systemd-analyze verify`, and every calendar expression is validated with `systemd-analyze calendar`. The user has validated OAuth, real Google Health fetching, raw archive inspection, normalized PostgreSQL inspection, incremental sync, and run-history commands in the Compose deployment. Backup and fresh-project restore have been exercised end to end against a temporary local Restic repository, including database records, raw files, token restoration, forward migration startup, and doctor checks. Active-lock testing confirms backup exits without Compose stopping the running `vitald` container. Run the automated restore drill against the configured production repository before relying on it.
@@ -580,18 +611,20 @@ The PostgreSQL integration test has been run against a real PostgreSQL 17 contai
 7. **Archive metadata is not linked to numeric sync-run IDs.** `raw_archives.run_id` is the archive directory timestamp identifier.
 8. **OAuth is single-user and file-backed.** This matches the current project scope but is not a multi-user secret-management design. OAuth projects in testing mode can still require reauthorization every seven days.
 9. **Restore is fresh-instance only.** Automated in-place restore is intentionally excluded to avoid accidental production-volume destruction; cutover is an explicit operator action.
+10. **Grafana SQLite state is disposable.** It persists across normal recreation but is not backed up. Provisioned dashboards and the datasource recover from Git; UI-only users, preferences, annotations, alerts, and unexported edits do not.
+11. **Grafana external access is deliberately absent.** Access is loopback-only through SSH tunneling; reverse-proxy/TLS exposure, external authentication, plugins, alert delivery, and intraday heart-rate panels are deferred.
 
 ## 15. Next Planned Work
 
-### Immediate next milestone: Grafana provisioning and dashboards
+### Immediate next milestone: controlled historical backfill
 
-Provision Grafana and its PostgreSQL datasource in version control, then build dashboards against the stable `analytics` schema for daily health trends, heart rate, sleep, exercise, and ingestion freshness.
+Design and execute a bounded, resumable historical backfill workflow using the existing raw-before-normalized and closed-open range invariants. It should avoid advancing normal synchronization checkpoints incorrectly, respect provider limits, expose progress/failures, and be validated on a small range before expanding history.
 
 ### Planned order
 
-1. Grafana datasource and version-controlled dashboards
-2. controlled historical backfill
-3. evidence-based TimescaleDB evaluation
+1. controlled historical backfill
+2. evidence-based TimescaleDB evaluation after measuring real volume and query performance
+3. raw archive retention/compression policy
 
 ## 16. Future-Agent Handoff Checklist
 

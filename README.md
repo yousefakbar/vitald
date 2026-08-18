@@ -7,6 +7,7 @@
 - [`docs/CURRENT_STATE.md`](docs/CURRENT_STATE.md): living architecture, implementation status, limitations, and agent handoff
 - [`docs/PROJECT.md`](docs/PROJECT.md): long-term goals and design direction
 - [`docs/BACKUP_RESTORE.md`](docs/BACKUP_RESTORE.md): encrypted backup and disaster-recovery workflow
+- [`docs/GRAFANA.md`](docs/GRAFANA.md): Grafana setup, access, dashboard workflow, security, and recovery
 - [`docs/SCHEDULING.md`](docs/SCHEDULING.md): rootless systemd services, timers, logs, and operations
 
 ## Supported data
@@ -79,6 +80,11 @@ Important variables:
 | `VITALD_TOKEN_PATH` | `~/.config/vitald/token.json` | OAuth token file |
 | `VITALD_RAW_DATA_PATH` | `data/raw` | raw archive root |
 | `VITALD_LOG_FORMAT` | `text` | `text` or `json` |
+| `GRAFANA_ADMIN_USER` | `admin` | Initial local Grafana administrator |
+| `GRAFANA_ADMIN_PASSWORD` | required for Grafana | Initial administrator password, stored only outside Git |
+| `GRAFANA_SECRET_KEY` | required for Grafana | Stable key for encrypted Grafana state |
+| `VITALD_GRAFANA_DB_USER` | `vitald_grafana` | Read-only analytics database login |
+| `VITALD_GRAFANA_DB_PASSWORD` | required for Grafana | Read-only datasource password, stored only outside Git |
 
 Tokens are written atomically with `0600` permissions. Health data, `.env`, and tokens must not be committed.
 
@@ -148,13 +154,30 @@ Database migrations are embedded in the binary and applied automatically before 
 
 ```bash
 cp .env.example .env
-# Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and POSTGRES_PASSWORD.
+# Set Google, PostgreSQL, Grafana, and backup secrets documented above.
 docker compose up -d postgres
 docker compose run --rm --service-ports --no-deps vitald auth
 docker compose run --rm --no-deps vitald sync --initial-days 30
 ```
 
-The Compose deployment uses persistent volumes for PostgreSQL, raw data, and OAuth configuration.
+The Compose deployment uses persistent volumes for PostgreSQL, raw data, OAuth configuration, and Grafana runtime state.
+
+## Grafana
+
+Grafana is pinned, provisioned from Git, and exposed only at `127.0.0.1:3107`. Its dedicated PostgreSQL role can select the stable `analytics` views but cannot read internal tables or modify data. Start it manually with:
+
+```bash
+./scripts/provision-grafana-db.sh
+docker compose up -d grafana
+```
+
+For remote access, tunnel the loopback listener:
+
+```bash
+ssh -N -L 3107:127.0.0.1:3107 your-homelab
+```
+
+Then open `http://127.0.0.1:3107`. Dashboards for overview, heart rate/HRV, sleep, exercise, and pipeline health are version controlled under `deploy/grafana/`. See [`docs/GRAFANA.md`](docs/GRAFANA.md) for credentials, systemd operation, editing/export, updates, troubleshooting, and recovery.
 
 ## Backup and restore
 
@@ -210,12 +233,14 @@ internal/provider/googlehealth/     OAuth and Google Health REST client
 internal/archive/                   atomic raw response archive
 internal/ingest/                    pagination, normalization, orchestration
 internal/storage/postgres/          PostgreSQL store and embedded migrations
+deploy/grafana/                     provisioned datasource and dashboards
+docs/GRAFANA.md                     Grafana setup, operation, and recovery
 docs/PROJECT.md                     high-level design
 ```
 
 ## Scheduling
 
-`vitald sync` remains a terminating command. Version-controlled rootless user-systemd units schedule sync every six hours, daily doctor and backup jobs, and a weekly isolated restore drill.
+`vitald sync` remains a terminating command. Version-controlled rootless user-systemd units manage PostgreSQL and Grafana, schedule sync every six hours, run daily doctor and backup jobs, and perform a weekly isolated restore drill.
 
 Inspect generated units without changing the system, then install them:
 

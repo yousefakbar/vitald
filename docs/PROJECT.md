@@ -413,7 +413,9 @@ The **safe unattended synchronization** milestone is implemented: PostgreSQL adv
 
 The **stable analytics SQL views** milestone is implemented: versioned views in the `analytics` PostgreSQL schema provide daily summaries, heart-rate trends, typed sleep and exercise sessions, and pipeline freshness without exposing provider JSON contracts to dashboards.
 
-The next milestone is Grafana datasource provisioning and version-controlled dashboards. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
+The **Grafana visualization milestone** is implemented: a pinned loopback-only Grafana deployment uses a least-privilege PostgreSQL role, Git-managed provisioning, five dashboards over the stable `analytics` schema, independent rootless systemd ownership, and disposable integration validation.
+
+The next milestone is a controlled historical backfill workflow. See [`CURRENT_STATE.md`](CURRENT_STATE.md) for exact current behavior and acceptance criteria.
 
 ## Open Decisions
 
@@ -423,8 +425,6 @@ The following should be decided during implementation rather than assumed here:
 - future normalized schema refinements
 - whether PostgreSQL should later gain the TimescaleDB extension
 - long-term raw-data retention and compression policy
-- dashboard technology
-- scheduler / deployment mechanism
 - whether a separate HTTP API is needed
 - packaging and release strategy
 
