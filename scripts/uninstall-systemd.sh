@@ -8,9 +8,9 @@ usage() {
   cat <<'EOF'
 Usage: scripts/uninstall-systemd.sh [--stop-postgres]
 
-Disables and removes vitald user-systemd scheduling. PostgreSQL is left running
-unless --stop-postgres is supplied. Data, volumes, images, and backups are never
-removed.
+Disables and removes vitald user-systemd scheduling. Grafana is stopped, while
+PostgreSQL is left running unless --stop-postgres is supplied. Data, volumes,
+images, dashboards, and backups are never removed.
 EOF
 }
 while [[ $# -gt 0 ]]; do
@@ -25,6 +25,7 @@ timers=(vitald-sync.timer vitald-doctor.timer vitald-backup.timer vitald-verify-
 jobs=(vitald-sync.service vitald-doctor.service vitald-backup.service vitald-verify-backup.service)
 files=(
   vitald-postgres.service
+  vitald-grafana.service
   vitald-sync.service vitald-sync.timer
   vitald-doctor.service vitald-doctor.timer
   vitald-backup.service vitald-backup.timer
@@ -40,6 +41,7 @@ for job in "${jobs[@]}"; do
   fi
 done
 systemctl --user disable "${timers[@]}" 2>/dev/null || true
+systemctl --user disable --now vitald-grafana.service 2>/dev/null || true
 if [[ "$stop_postgres" == true ]]; then
   systemctl --user disable --now vitald-postgres.service 2>/dev/null || true
 else
@@ -52,7 +54,7 @@ done
 systemctl --user daemon-reload
 systemctl --user reset-failed 'vitald-*' 2>/dev/null || true
 
-printf 'Removed vitald user-systemd units. Persistent data and backups were not changed.\n'
+printf 'Removed vitald user-systemd units. Persistent data, dashboards, and backups were not changed.\n'
 if [[ "$stop_postgres" != true ]]; then
   printf 'The PostgreSQL container was left running.\n'
 fi

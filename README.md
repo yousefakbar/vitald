@@ -150,8 +150,8 @@ Database migrations are embedded in the binary and applied automatically before 
 cp .env.example .env
 # Set GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, and POSTGRES_PASSWORD.
 docker compose up -d postgres
-docker compose run --rm --service-ports vitald auth
-docker compose run --rm vitald sync --initial-days 30
+docker compose run --rm --service-ports --no-deps vitald auth
+docker compose run --rm --no-deps vitald sync --initial-days 30
 ```
 
 The Compose deployment uses persistent volumes for PostgreSQL, raw data, and OAuth configuration.

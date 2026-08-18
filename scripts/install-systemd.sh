@@ -66,6 +66,9 @@ set +a
 export VITALD_ENV_FILE="$env_file"
 export VITALD_CONTAINER_ENGINE="$engine"
 : "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required in the environment file}"
+: "${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required in the environment file}"
+: "${GRAFANA_SECRET_KEY:?GRAFANA_SECRET_KEY is required in the environment file}"
+: "${VITALD_GRAFANA_DB_PASSWORD:?VITALD_GRAFANA_DB_PASSWORD is required in the environment file}"
 : "${VITALD_BACKUP_REPOSITORY:?VITALD_BACKUP_REPOSITORY is required in the environment file}"
 : "${RESTIC_PASSWORD_FILE:?RESTIC_PASSWORD_FILE is required in the environment file}"
 password_file=$RESTIC_PASSWORD_FILE
@@ -133,6 +136,7 @@ fi
 
 if [[ "$build_images" == true ]]; then
   cd "$ROOT"
+  "$engine" compose pull grafana
   "$engine" compose build vitald
   "$engine" compose --profile backup build backup restore
 fi
@@ -144,7 +148,12 @@ done
 systemctl --user daemon-reload
 
 if [[ "$enable_units" == true ]]; then
-  systemctl --user enable --now vitald-postgres.service
+  # Reconcile containers even when a previous oneshot unit is still marked
+  # active after its detached Compose container was removed manually.
+  systemctl --user enable vitald-postgres.service
+  systemctl --user restart vitald-postgres.service
+  systemctl --user enable vitald-grafana.service
+  systemctl --user restart vitald-grafana.service
   systemctl --user start vitald-doctor.service
   systemctl --user enable --now \
     vitald-sync.timer vitald-doctor.timer vitald-backup.timer vitald-verify-backup.timer

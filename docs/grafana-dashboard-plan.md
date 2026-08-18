@@ -4,7 +4,7 @@
 >
 > **Collaboration mode:** The user implements each checklist point. The assistant provides guidance and reviews changes, and does not edit implementation code unless explicitly requested.
 >
-> **Status:** In progress — point 7 is next
+> **Status:** In progress — point 8 is next
 > **Started:** 2026-08-16
 
 ## High-level goal
@@ -99,12 +99,12 @@ Add Grafana as a rootless, Compose-managed visualization layer over the stable P
 
 ### 7. Integrate Grafana with rootless user-systemd
 
-- [ ] Add a separate `vitald-grafana.service` ordered after and requiring `vitald-postgres.service`.
-- [ ] Extend `scripts/systemd-run.sh` with safe Grafana start/stop operations.
-- [ ] Extend installation to obtain/build required images, provision database access, install the unit, and verify startup.
-- [ ] Extend uninstall behavior without deleting the Grafana volume.
-- [ ] Keep Grafana independently restartable and avoid reconciling active one-shot `vitald` jobs.
-- [ ] Validate rendered units with `systemd-analyze verify`.
+- [x] Add a separate `vitald-grafana.service` ordered after and requiring `vitald-postgres.service`.
+- [x] Extend `scripts/systemd-run.sh` with safe Grafana start/stop operations.
+- [x] Extend installation to pull required images, provision database access, install the unit, and verify startup.
+- [x] Extend uninstall behavior without deleting the Grafana volume.
+- [x] Keep Grafana independently restartable and avoid reconciling active one-shot `vitald` jobs.
+- [x] Validate rendered units with `systemd-analyze verify`.
 
 ### 8. Add automated and operational validation
 
@@ -185,3 +185,4 @@ Documentation is a required completion gate, not optional cleanup. At minimum it
 - 2026-08-17: Point 4 completed; added and visually validated the declarative health overview dashboard with seven daily trend panels, explicit local-time semantics, stable datasource references, and missing-data gaps.
 - 2026-08-17: Point 5 completed; added and visually validated declarative heart-rate and sleep dashboards with sample coverage, resting heart rate, HRV, rolling sleep trends, and session detail.
 - 2026-08-17: Point 6 completed; added and visually validated declarative exercise and pipeline-health dashboards with session analysis, operational freshness thresholds, per-metric status, and record volumes.
+- 2026-08-17: Point 7 completed; added an independently managed rootless Grafana unit, installer/uninstaller integration, database-role provisioning, readiness checks, and provider-safe PostgreSQL startup detection.

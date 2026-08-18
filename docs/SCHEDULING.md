@@ -28,7 +28,9 @@ All calendars explicitly use `Asia/Riyadh`, independently of the host timezone.
 
 Each timer has a stable randomized delay of up to ten minutes, one-minute accuracy, and `Persistent=true`. A persistent timer runs a missed job after the user manager returns. Systemd coalesces missed activations into one run rather than replaying every missed interval.
 
-Scheduled Compose runs use `--no-deps`, so they cannot reconcile or stop another one-shot container. The backup unit is ordered after a systemd-managed sync, and verification is ordered after backup. PostgreSQL advisory locking remains the final exclusion mechanism for manual or otherwise external overlap. If a manual sync is still active when backup starts, backup fails rather than stopping sync.
+Scheduled Compose runs use `--no-deps`, so they cannot reconcile or stop another one-shot container. The Compose file also disables podman-compose's shared-pod mode. Without that setting, a configuration-hash change (including a changed interpolated environment value) can make a one-off `run` replace the shared pod and stop unrelated long-lived containers such as PostgreSQL and Grafana. Services instead run as separate containers on the same Compose network, matching Docker Compose's lifecycle isolation.
+
+The backup unit is ordered after a systemd-managed sync, and verification is ordered after backup. PostgreSQL advisory locking remains the final exclusion mechanism for manual or otherwise external overlap. If a manual sync is still active when backup starts, backup fails rather than stopping sync.
 
 ## Prerequisites
 

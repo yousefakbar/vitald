@@ -27,8 +27,11 @@ if [[ "$skip_build" != true ]]; then
   "${COMPOSE[@]}" --profile backup build backup
 fi
 if [[ "$action" == backup ]]; then
-  if [[ -z "$("${COMPOSE[@]}" ps -q postgres 2>/dev/null || true)" ]]; then
-    "${COMPOSE[@]}" up -d postgres
+  # A listed container may be stopped or stale. Probe the service itself before
+  # deciding whether Compose needs to reconcile it.
+  if ! "${COMPOSE[@]}" exec -T postgres \
+    pg_isready -U "${POSTGRES_USER:-vitald}" -d "${POSTGRES_DB:-vitald}" >/dev/null 2>&1; then
+    "${COMPOSE[@]}" up -d --no-deps postgres
   fi
   wait_for_postgres
   "${COMPOSE[@]}" --profile backup run --rm -T --no-deps "${RESTIC_RUN_ARGS[@]}" backup backup

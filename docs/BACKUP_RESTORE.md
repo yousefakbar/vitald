@@ -136,8 +136,8 @@ The restore script:
 Inspect the result:
 
 ```bash
-podman compose -p vitald-restored run --rm vitald status
-podman compose -p vitald-restored run --rm vitald doctor --online
+podman compose -p vitald-restored run --rm --no-deps vitald status
+podman compose -p vitald-restored run --rm --no-deps vitald doctor --online
 ```
 
 Use `docker compose` instead when Docker is selected. `VITALD_CONTAINER_ENGINE=docker` forces Docker when both engines are installed.

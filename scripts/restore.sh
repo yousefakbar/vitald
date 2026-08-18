@@ -33,8 +33,8 @@ prepare_restic_run_args
 source_project=$(compose_project_name)
 [[ "$target_project" != "$source_project" ]] || { printf 'refusing in-place restore into project %s\n' "$target_project" >&2; exit 1; }
 
-if [[ -n "$("${COMPOSE[@]}" -p "$target_project" ps -aq 2>/dev/null || true)" ]]; then
-  printf 'target project %s already has containers; choose a fresh project name\n' "$target_project" >&2
+if compose_project_has_resources "$target_project"; then
+  printf 'target project %s already has containers, volumes, or a network; choose a fresh project name\n' "$target_project" >&2
   exit 1
 fi
 

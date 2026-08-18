@@ -512,12 +512,12 @@ Common commands:
 ```bash
 podman compose build vitald
 podman compose up -d postgres
-podman compose run --rm --service-ports vitald auth
-podman compose run --rm vitald fetch steps --from 2026-08-01 --to 2026-08-08
-podman compose run --rm vitald sync
-podman compose run --rm vitald status
-podman compose run --rm vitald runs list
-podman compose run --rm vitald doctor
+podman compose run --rm --service-ports --no-deps vitald auth
+podman compose run --rm --no-deps vitald fetch steps --from 2026-08-01 --to 2026-08-08
+podman compose run --rm --no-deps vitald sync
+podman compose run --rm --no-deps vitald status
+podman compose run --rm --no-deps vitald runs list
+podman compose run --rm --no-deps vitald doctor
 ```
 
 `--service-ports` is needed for `auth`, not routine fetch/sync/status commands.

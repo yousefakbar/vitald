@@ -1,3 +1,10 @@
+# podman-compose otherwise puts every service in one shared pod. Recreating a
+# one-shot service after any interpolated config change then replaces that pod,
+# stopping unrelated long-lived services such as Grafana. Separate containers
+# still share the project network and match Docker Compose's lifecycle model.
+x-podman:
+  in_pod: false
+
 services:
   postgres:
     image: postgres:17-alpine

@@ -71,8 +71,11 @@ postgres_db=${POSTGRES_DB:-vitald}
 	exit 1
 }
 
-# Ensure PostgreSQL is running, otherwise start it here
-if [[ -z "$("${COMPOSE[@]}" ps -q postgres 2>/dev/null || true)" ]]; then
+# Ensure PostgreSQL is running, otherwise start it here. Probe readiness
+# directly instead of relying on Compose process listings, which can be stale
+# or provider-specific.
+if ! "${COMPOSE[@]}" exec -T postgres \
+	pg_isready -U "$postgres_user" -d "$postgres_db" >/dev/null 2>&1; then
 	"${COMPOSE[@]}" up -d --no-deps postgres
 fi
 

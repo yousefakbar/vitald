@@ -60,6 +60,19 @@ select_compose_command() {
   fi
 }
 
+compose_project_has_resources() {
+  local project=$1
+  local engine=${VITALD_CONTAINER_ENGINE:-${COMPOSE[0]}}
+  local label="label=com.docker.compose.project=$project"
+
+  # Native engine queries are intentional. `docker compose ps -a` and
+  # `podman-compose ps` have incompatible flags, while both engines expose the
+  # standard Compose project label on containers, volumes, and networks.
+  [[ -n "$("$engine" ps -aq --filter "$label")" ]] ||
+    [[ -n "$("$engine" volume ls -q --filter "$label")" ]] ||
+    [[ -n "$("$engine" network ls -q --filter "$label")" ]]
+}
+
 absolute_path() {
   local path=$1 directory base
   directory=$(dirname "$path")
